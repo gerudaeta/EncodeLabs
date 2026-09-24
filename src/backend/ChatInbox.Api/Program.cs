@@ -1,5 +1,6 @@
 using ChatInbox.Api;
 using ChatInbox.Application.Inbound;
+using ChatInbox.Application.Queries;
 using ChatInbox.Infrastructure.Messaging;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Infrastructure.Telegram;
@@ -16,6 +17,7 @@ if (!string.IsNullOrWhiteSpace(postgresConnection))
 {
     builder.Services.AddDbContext<InboxDbContext>(options => options.UseNpgsql(postgresConnection));
     builder.Services.AddScoped<IInboundStore, InboxRepository>();
+    builder.Services.AddScoped<IInboxQueries, InboxQueries>();
 }
 var amqpUri = builder.Configuration["RabbitMQ:Uri"];
 IConnection? consumerConnection = null;
@@ -55,6 +57,8 @@ try
     }
 
     app.MapTelegramWebhook();
+    if (!string.IsNullOrWhiteSpace(postgresConnection))
+        app.MapInboxQueries();
 
     app.Run();
 }

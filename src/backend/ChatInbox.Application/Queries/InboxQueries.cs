@@ -53,9 +53,11 @@ public sealed record PageCursor(DateTimeOffset Timestamp, Guid Id)
                 !version.TryGetInt32(out var v) || v != 1 ||
                 !root.TryGetProperty("T", out var time) || time.ValueKind != JsonValueKind.String ||
                 !root.TryGetProperty("Id", out var identity) || identity.ValueKind != JsonValueKind.String ||
-                !DateTimeOffset.TryParseExact(time.GetString(), "O", null,
+                !TryReadString(time, out var timeText) ||
+                !TryReadString(identity, out var idText) ||
+                !DateTimeOffset.TryParseExact(timeText, "O", null,
                     System.Globalization.DateTimeStyles.None, out var timestamp) ||
-                !Guid.TryParseExact(identity.GetString(), "D", out var id) || id == Guid.Empty)
+                !Guid.TryParseExact(idText, "D", out var id) || id == Guid.Empty)
                 return new(false, null);
 
             var cursor = new PageCursor(timestamp, id);
@@ -65,6 +67,21 @@ public sealed record PageCursor(DateTimeOffset Timestamp, Guid Id)
         catch (Exception exception) when (exception is FormatException or JsonException)
         {
             return new(false, null);
+        }
+    }
+
+    private static bool TryReadString(JsonElement element, out string? value)
+    {
+        try
+        {
+            value = element.GetString();
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            // .NET can defer malformed JSON string decoding until GetString().
+            value = null;
+            return false;
         }
     }
 }

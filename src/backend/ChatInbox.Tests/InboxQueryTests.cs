@@ -141,6 +141,27 @@ public sealed class InboxQueryTests(PostgresFixture postgres, BrokerFixture brok
             (await _client.GetAsync("/api/conversations?limit=100")).StatusCode);
     }
 
+    [Theory]
+    [InlineData("T", false)]
+    [InlineData("T", true)]
+    [InlineData("Id", false)]
+    [InlineData("Id", true)]
+    public async Task InvalidUnicodeCursorFieldsReturnBadRequestOnBothRoutes(string field,
+        bool messagesRoute)
+    {
+        var timestamp = field == "T" ? "\\uD800" : "2026-09-24T10:00:00.0000000+00:00";
+        var id = field == "Id" ? "\\uD800" : "11111111-1111-1111-1111-111111111111";
+        var cursor = Convert.ToBase64String(Encoding.UTF8.GetBytes(
+            $"{{\"V\":1,\"T\":\"{timestamp}\",\"Id\":\"{id}\"}}"))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var path = messagesRoute
+            ? $"/api/conversations/{Guid.NewGuid()}/messages"
+            : "/api/conversations";
+        using var response = await _client.GetAsync($"{path}?before={cursor}");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task DefaultPageIsFiftyAndGetRequestsDoNotWrite()
     {

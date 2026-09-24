@@ -65,18 +65,13 @@ public static class TelegramWebhook
             if (!TryInt64(root, "update_id", out var updateId))
                 return Results.BadRequest();
 
-            if (!TryProperty(root, "message", out var message) ||
-                !TryProperty(message, "text", out var textElement))
+            if (!TryProperty(root, "message", out var message))
             {
                 IgnoredUpdates.Add(1);
                 return Results.Ok();
             }
 
-            if (textElement.ValueKind != JsonValueKind.String)
-                return Results.BadRequest();
-
-            var text = textElement.GetString();
-            if (string.IsNullOrWhiteSpace(text) || text.EnumerateRunes().Count() > MaxTextScalars ||
+            if (message.ValueKind != JsonValueKind.Object ||
                 !TryInt64(message, "message_id", out var messageId) ||
                 !TryInt64(message, "date", out var sentAtSeconds) ||
                 !TryProperty(message, "chat", out var chat) ||
@@ -92,6 +87,19 @@ public static class TelegramWebhook
             {
                 return Results.BadRequest();
             }
+
+            if (!TryProperty(message, "text", out var textElement))
+            {
+                IgnoredUpdates.Add(1);
+                return Results.Ok();
+            }
+
+            if (textElement.ValueKind != JsonValueKind.String)
+                return Results.BadRequest();
+
+            var text = textElement.GetString();
+            if (string.IsNullOrWhiteSpace(text) || text.EnumerateRunes().Count() > MaxTextScalars)
+                return Results.BadRequest();
 
             var update = new InboundTelegramUpdate(1, updateId, chatId, messageId, sentAt,
                 text, OptionalInt64(message, "from", "id"), OptionalString(message, "from", "first_name"),

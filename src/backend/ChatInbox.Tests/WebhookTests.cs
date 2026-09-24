@@ -73,6 +73,32 @@ public sealed class WebhookTests
         Assert.Empty(factory.Publisher.Published);
     }
 
+    [Fact]
+    public async Task AuthenticatedNonTextMessageWithRequiredFieldsIsIgnored()
+    {
+        await using var factory = new WebhookFactory();
+        using var response = await SendAsync(factory.CreateClient(),
+            """{"update_id":123,"message":{"message_id":456,"date":1700000000,"chat":{"id":789},"photo":[]}}""");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(factory.Publisher.Published);
+    }
+
+    [Theory]
+    [InlineData("""{"update_id":123,"message":null}""")]
+    [InlineData("""{"update_id":123,"message":42}""")]
+    [InlineData("""{"update_id":123,"message":[]}""")]
+    [InlineData("""{"update_id":123,"message":{}}""")]
+    [InlineData("""{"update_id":123,"message":{"message_id":456,"date":1700000000,"chat":{}}}""")]
+    public async Task MalformedMessageIsRejectedInsteadOfIgnored(string body)
+    {
+        await using var factory = new WebhookFactory();
+        using var response = await SendAsync(factory.CreateClient(), body);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(factory.Publisher.Published);
+    }
+
     [Theory]
     [InlineData("not-json")]
     [InlineData("{}")]

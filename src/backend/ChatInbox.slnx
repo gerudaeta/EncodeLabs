@@ -3,4 +3,5 @@
   <Project Path="ChatInbox.Application/ChatInbox.Application.csproj" />
   <Project Path="ChatInbox.Domain/ChatInbox.Domain.csproj" />
   <Project Path="ChatInbox.Infrastructure/ChatInbox.Infrastructure.csproj" />
+  <Project Path="ChatInbox.Tests/ChatInbox.Tests.csproj" />
 </Solution>

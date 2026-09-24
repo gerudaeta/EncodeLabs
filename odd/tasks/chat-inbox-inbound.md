@@ -31,7 +31,7 @@ The merged foundation contains runnable application shells and supporting contai
 - [x] **INB-02 — Broker publication:** Durable topology and mandatory publisher confirms/return handling against pinned RabbitMQ.
 - [x] **INB-03 — PostgreSQL store:** Transactional conversation/message model, preview, idempotency, migration, and integration tests.
 - [x] **INB-04 — Consumer:** Same-host manual acknowledgement, bounded retry, and dead-letter behavior.
-- [ ] **INB-05 — Read APIs:** Stable keyset queries and local-only conversation/message endpoints.
+- [x] **INB-05 — Read APIs:** Stable keyset queries and conversation/message endpoints; local-only exposure remains an INB-07 requirement.
 - [ ] **INB-06 — Registration:** Discover ngrok URL, reconcile Telegram webhook, and expose honest readiness.
 - [ ] **INB-07 — Compose security:** Pin images, private ngrok agent access, webhook-only public policy, loopback API, and configuration checks.
 - [ ] **INB-08 — End-to-end evidence:** Container integration tests, README, final checks, and honest live-smoke boundary.
@@ -51,8 +51,9 @@ The merged foundation contains runnable application shells and supporting contai
 - 2026-09-24 INB-02: Commits `16635ed`, `6e3f9b9`, and `4244119` added durable topology and a serialized publisher with mandatory returns and positive confirms, plus recovery/disposal fixes and self-contained tests. A clean cancellation RED was observed after pinned-broker setup. The implementer reported 7/7 broker tests and 28/28 full-solution tests; the parent independently reran the broker group 7/7 and the formerly order-dependent cancellation test alone 1/1. Independent static review approved after correcting publisher recovery, host ownership, and test isolation. This proves local broker publication, not retry/DLQ disposition, database persistence, or live Telegram delivery.
 - 2026-09-24 INB-03: Commits `dc3f355` and `a667875` added EF Core/PostgreSQL schema, idempotent transaction, migration, and real PostgreSQL tests. TDD RED exposed duplicate-scope, null-summary, and stale display-name behavior; fixes now preserve timestamp, preview, and display ordering. The implementer reported 9/9 store tests and 37/37 full-solution tests; the parent independently reran the store group 9/9. Generated migration SQL was inspected; scoped static review approved. Compose database wiring remains INB-07; consumer acknowledgements and live Telegram remain unverified.
 - 2026-09-24 INB-04: Commits `2f4d789` and `1626c08` added a same-host consumer with manual ack after committed or duplicate store outcome, bounded RabbitMQ 4.3.6 retry, and DLQ handling. TDD RED was observed before consumer behavior and for broker cancellation. The parent independently reran pinned RabbitMQ/PostgreSQL consumer tests 7/7; the implementer reported full solution 44/44. Tests assert six deliveries under limit 5 and `delivery_limit` dead-letter reason. Scoped static review approved fail-stop on terminal broker cancellation; restart is required rather than automatic recovery. No live Telegram/ngrok flow is claimed.
-- Checks pending: INB-05 through INB-08, ngrok/Compose validation, and final branch review.
+- 2026-09-24 INB-05: Commits `aef995e` and `4179d72` added keyset conversation/message GET routes and real PostgreSQL tests. TDD RED was observed for missing routes and four malformed-Unicode cursor cases that returned 500 before correction. The parent independently reran focused tests 10/10; the implementer reported full solution 54/54. Scoped static review approved. **Do not run exposed Compose or deliver this branch yet:** unauthenticated GETs remain unsafe until INB-07 binds API to loopback and restricts ngrok to the webhook POST.
+- Checks pending: INB-06 through INB-08, ngrok/Compose security validation, and final branch review.
 
 ## Next step
 
-Execute INB-05 with observed RED, GREEN, REFACTOR, then review and update this file and its Engram mirror before INB-06.
+Execute INB-06 with observed RED, GREEN, REFACTOR, then review and update this file and its Engram mirror before INB-07. Do not expose the current Compose configuration.

@@ -24,13 +24,41 @@ public sealed class InboundConsumer(
         await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false,
             cancellationToken: stoppingToken);
         var consumer = new AsyncEventingBasicConsumer(channel);
+        var terminal = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task OnCancelled(object _, ConsumerEventArgs __)
+        {
+            if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("consumer_cancelled");
+            return Task.CompletedTask;
+        }
+        Task OnChannelShutdown(object _, ShutdownEventArgs __)
+        {
+            if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("channel_shutdown");
+            return Task.CompletedTask;
+        }
+        Task OnConnectionShutdown(object _, ShutdownEventArgs __)
+        {
+            if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("connection_shutdown");
+            return Task.CompletedTask;
+        }
+        Task OnCallbackException(object _, CallbackExceptionEventArgs __)
+        {
+            if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("consumer_callback_failure");
+            return Task.CompletedTask;
+        }
+
+        consumer.UnregisteredAsync += OnCancelled;
+        channel.ChannelShutdownAsync += OnChannelShutdown;
+        channel.CallbackExceptionAsync += OnCallbackException;
+        connection.ConnectionShutdownAsync += OnConnectionShutdown;
         consumer.ReceivedAsync += async (_, delivery) =>
             await ProcessAsync(channel, delivery, stoppingToken);
-        var consumerTag = await channel.BasicConsumeAsync(RabbitTopology.InboundQueue,
-            autoAck: false, consumer, cancellationToken: stoppingToken);
         try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
+            await channel.BasicConsumeAsync(RabbitTopology.InboundQueue,
+                autoAck: false, consumer, cancellationToken: stoppingToken);
+            var category = await terminal.Task.WaitAsync(stoppingToken);
+            logger.LogError("Inbound consumer stopped: {Category}", category);
+            throw new IOException($"Inbound consumer stopped: {category}");
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -38,8 +66,10 @@ public sealed class InboundConsumer(
         }
         finally
         {
-            if (channel.IsOpen)
-                await channel.BasicCancelAsync(consumerTag, cancellationToken: CancellationToken.None);
+            connection.ConnectionShutdownAsync -= OnConnectionShutdown;
+            channel.CallbackExceptionAsync -= OnCallbackException;
+            channel.ChannelShutdownAsync -= OnChannelShutdown;
+            consumer.UnregisteredAsync -= OnCancelled;
         }
     }
 

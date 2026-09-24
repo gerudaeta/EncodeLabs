@@ -70,6 +70,22 @@ public sealed class InboundConsumerTests(BrokerFixture broker, PostgresFixture p
     }
 
     [Fact]
+    public async Task BrokerCancellationStopsHostInsteadOfLeavingIntakeUnconsumed()
+    {
+        await using var consumer = await StartConsumerAsync();
+        await PublishAsync(Update(9206));
+        await WaitUntilAsync(async () => await CountMessagesAsync(9206) == 1,
+            TimeSpan.FromSeconds(10));
+
+        await using var connection = await ConnectAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await channel.QueueDeleteAsync(RabbitTopology.InboundQueue);
+
+        await WaitUntilAsync(() => Task.FromResult(consumer.ApplicationStopping),
+            TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
     public async Task TransientFailuresAreDelayedAndRecoverBeforeLimit()
     {
         var store = new FailingStore(failures: 2);
@@ -114,9 +130,15 @@ public sealed class InboundConsumerTests(BrokerFixture broker, PostgresFixture p
         await WaitUntilAsync(async () => (dead = await GetDeadLetterAsync()) is not null,
             TimeSpan.FromSeconds(160));
         Assert.NotNull(dead);
-        Assert.True(store.Calls >= 5, $"Expected at least five deliveries, got {store.Calls}");
-        Assert.True(dead.BasicProperties.Headers?.ContainsKey("x-death") == true,
-            "Dead-lettered delivery lacks x-death evidence");
+        Assert.Equal(6, store.Calls);
+        var headers = Assert.IsAssignableFrom<IDictionary<string, object?>>(dead.BasicProperties.Headers);
+        var deaths = Assert.IsType<List<object>>(headers["x-death"]);
+        var death = Assert.IsType<Dictionary<string, object>>(Assert.Single(deaths));
+        Assert.Equal("delivery_limit", Encoding.UTF8.GetString(Assert.IsType<byte[]>(death["reason"])));
+        Assert.Equal(RabbitTopology.InboundQueue,
+            Encoding.UTF8.GetString(Assert.IsType<byte[]>(death["queue"])));
+        Assert.Equal(RabbitTopology.InboundExchange,
+            Encoding.UTF8.GetString(Assert.IsType<byte[]>(death["exchange"])));
         output.WriteLine($"Exhausted deliveries: {store.Calls}; retry gaps: {string.Join(", ",
             store.Attempts.Zip(store.Attempts.Skip(1), (first, next) =>
                 (next - first).TotalMilliseconds.ToString("F0")))} ms; x-death present: true");
@@ -258,6 +280,9 @@ public sealed class InboundConsumerTests(BrokerFixture broker, PostgresFixture p
 
     private sealed class ConsumerHarness(IHost host, IConnection connection) : IAsyncDisposable
     {
+        public bool ApplicationStopping => host.Services.GetRequiredService<IHostApplicationLifetime>()
+            .ApplicationStopping.IsCancellationRequested;
+
         public Task StopAsync() => host.StopAsync();
 
         public async ValueTask DisposeAsync()

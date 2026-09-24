@@ -33,7 +33,10 @@ else
         services.GetRequiredService<RabbitPublisherHostedService>());
     if (!string.IsNullOrWhiteSpace(postgresConnection))
     {
-        consumerConnection = await new ConnectionFactory { Uri = new Uri(amqpUri) }
+        consumerConnection = await new ConnectionFactory
+        {
+            Uri = new Uri(amqpUri), AutomaticRecoveryEnabled = false
+        }
             .CreateConnectionAsync();
         builder.Services.AddSingleton(consumerConnection);
         builder.Services.AddHostedService<InboundConsumer>();

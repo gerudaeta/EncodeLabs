@@ -31,7 +31,7 @@ The repository has only an initial README. The technical challenge requires a re
 - [x] **FND-02 — Frontend foundation:** Created Angular 22 standalone app and minimal inbox route without fake data, and observed a successful production build.
 - [x] **FND-03 — Compose startup:** Created root Compose, Dockerfiles, `.env.example`, and ignore rules; validated configuration, image builds, and partial service startup. Full five-service startup remains unverified without a valid ngrok token.
 - [x] **FND-04 — ADRs:** Delivered the three one-page PostgreSQL, SignalR, and webhook/RabbitMQ decisions, with alternatives and consequences.
-- [ ] **FND-05 — C4 diagrams:** Deliver C4 context and container SVGs, validate XML, visually inspect labels/flows, and mark target versus implemented status.
+- [x] **FND-05 — C4 diagrams:** Delivered C4 context and container SVGs, validated XML and labels/flows, and marked target versus implemented status.
 - [ ] **FND-06 — Handoff and PR:** Update README with actual run instructions, re-run applicable checks, inspect staged/branch diff, push only the feature branch, and open a PR against `develop`.
 
 ## Acceptance criteria
@@ -49,8 +49,9 @@ The repository has only an initial README. The technical challenge requires a re
 - 2026-09-24 FND-02: Commit `adecf32` created Angular 22 standalone app and `/inbox` route. The parent independently observed `npm --prefix src/frontend/chat-inbox-web run build` pass with approved sandbox escalation; the default sandbox exited 134 without diagnostics. The implementer reported 2 passing tests; task review passed. Minor deferred: generated tests do not assert redirect/lazy route behavior.
 - 2026-09-24 FND-03: Commits `b5eeb42` and `495dd9b` added root Compose, images, local configuration, and loopback-only PostgreSQL/RabbitMQ ports after an independent security review. The parent independently observed `docker compose --env-file .env.example config --quiet` pass, verified rendered loopback bindings, and found no diff whitespace errors. The implementer reported API/web image builds and startup plus healthy PostgreSQL/RabbitMQ in separate runs. A valid ngrok token was unavailable, so full five-service startup and tunnel behavior remain unverified.
 - 2026-09-24 FND-04: Commit `54bb55f` added three ADRs with the approved decisions, alternatives, consequences, and explicit implementation boundaries. The parent independently read all three documents, verified their required headings, and found no diff whitespace errors. Official reference links were checked by the implementer; runtime behavior was not tested or claimed.
-- Checks pending: full Compose startup with ngrok credential, SVG parse/visual review, final diff, remote PR checks.
+- 2026-09-24 FND-05: Commit `6dc6dfc` added C4 context/container SVGs using a neutral style. The parent independently parsed both SVGs as XML and checked the required target/planned labels and diff whitespace. The implementer reported rendering and visually inspecting both full diagrams without clipping or overlap. These are static design artifacts, not runtime proof.
+- Checks pending: full Compose startup with ngrok credential, README/handoff, final diff, remote PR checks.
 
 ## Next step
 
-Execute FND-05, then advance only after its observed checks; update this file and its Engram mirror after each task.
+Execute FND-06 locally, then advance only after its observed checks; update this file and its Engram mirror after each task.

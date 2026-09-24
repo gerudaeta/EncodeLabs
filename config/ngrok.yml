@@ -1,0 +1,11 @@
+version: 3
+agent:
+  web_addr: 0.0.0.0:4040
+  web_allow_hosts:
+    - ngrok
+  inspect_db_size: -1
+endpoints:
+  - name: telegram-webhook
+    traffic_policy_file: /etc/ngrok/ngrok-policy.yml
+    upstream:
+      url: http://api:8080

@@ -129,6 +129,10 @@ public sealed class RabbitPublisherTests(BrokerFixture broker) : IClassFixture<B
     [Fact]
     public async Task CancellationCannotReportConfirmedAcceptance()
     {
+        await using var connection = await new ConnectionFactory { Uri = new Uri(broker.AmqpUri) }
+            .CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await RabbitTopology.DeclareAsync(channel, CancellationToken.None);
         await using var publisher = await RabbitInboundPublisher.ConnectAsync(
             broker.AmqpUri, RabbitTopology.InboundExchange, TimeSpan.FromSeconds(5));
         using var cancellation = new CancellationTokenSource();

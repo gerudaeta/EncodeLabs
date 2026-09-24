@@ -5,13 +5,13 @@ namespace ChatInbox.Tests.Integration;
 
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:17-alpine")
+    public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder("postgres:17-alpine")
         .WithDatabase($"inbox_{Guid.NewGuid():N}")
         .Build();
 
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString => Container.GetConnectionString();
 
-    public Task InitializeAsync() => _container.StartAsync();
+    public Task InitializeAsync() => Container.StartAsync();
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public Task DisposeAsync() => Container.DisposeAsync().AsTask();
 }

@@ -871,44 +871,44 @@ return new Page<MessageDto>(selected.Reverse().Select(m => new MessageDto(
 
 **Files:** Task 6 registration/readiness/test files; modify `ChatInbox.Api/Program.cs` for typed `HttpClient`, options, and hosted service.
 
-**Interfaces:** `NgrokTunnelSelector.SelectHttpsApiTunnel(JsonElement tunnels) : Uri` accepts exactly one HTTPS `public_url` whose tunnel config forwards to `http://api:8080`; zero or multiple matches is a typed failure. `TelegramRegistration : BackgroundService` queries `http://ngrok:4040/api/tunnels`, posts TLS-verified `https://api.telegram.org/bot{token}/setWebhook`, and queries `getWebhookInfo`; `IRegistrationStatus` exposes ready, current URL, last error category, pending count, and last Telegram delivery error without secrets. Define `INgrokTunnelClient.GetTunnelsAsync(CancellationToken) : Task<JsonDocument>`, `TelegramApiClient(HttpClient, TelegramOptions) : IRegistrationClient`, and `IRegistrationClient` with `Task SetWebhookAsync(Uri url, string secret, CancellationToken)` and `Task<WebhookInfo> GetWebhookInfoAsync(CancellationToken)` in `ChatInbox.Infrastructure/Telegram/TelegramRegistration.cs`; `WebhookInfo` is `record WebhookInfo(string? Url, int PendingCount, string? LastError)`. Task 8 replaces only the two external interfaces.
+**Interfaces:** `NgrokTunnelSelector.SelectHttpsApiTunnel(JsonElement tunnels) : Uri` accepts exactly one HTTPS `url` whose endpoint upstream forwards to `http://api:8080`; zero or multiple matches is a typed failure. `TelegramRegistration : BackgroundService` queries `http://ngrok:4040/api/endpoints`, posts TLS-verified `https://api.telegram.org/bot{token}/setWebhook`, and queries `getWebhookInfo`; `IRegistrationStatus` exposes ready, current URL, last error category, pending count, and last Telegram delivery error without secrets. Define `INgrokTunnelClient.GetTunnelsAsync(CancellationToken) : Task<JsonDocument>`, `TelegramApiClient(HttpClient, TelegramOptions) : IRegistrationClient`, and `IRegistrationClient` with `Task SetWebhookAsync(Uri url, string secret, CancellationToken)` and `Task<WebhookInfo> GetWebhookInfoAsync(CancellationToken)` in `ChatInbox.Infrastructure/Telegram/TelegramRegistration.cs`; `WebhookInfo` is `record WebhookInfo(string? Url, int PendingCount, string? LastError)`. Task 8 disables external registration in its local full-path host; provider clients remain unchanged.
 
 `RegistrationStatus` lives in Infrastructure beside the hosted service and implements `IRegistrationStatus`, with `bool IsReady`, `string? LastErrorCategory`, plus internal `MarkUnready(string category)` and `Observe(Uri expected, WebhookInfo info)`. `Api/Readiness.cs` consumes only `IRegistrationStatus`; Infrastructure never depends on API. Never retain token/secret in status or error categories.
 
 Expose `TelegramRegistration.ReconcileOnceAsync(CancellationToken)` internally to the test assembly; it executes one discovery → register-if-startup-or-changed → verify iteration and returns the next bounded delay (`TimeSpan`) while updating `IRegistrationStatus`. `ExecuteAsync` loops over this method. Tests use the fake clients below and advance iterations explicitly, not wall-clock sleeps.
 
-- [ ] **Step 1 — RED:** Unit-test zero, one, and two matching HTTPS tunnels; reject a tunnel forwarding to another service. Fake `HttpMessageHandler`: verify every startup calls `setWebhook` even when `getWebhookInfo.url` already matches, with `secret_token`, `allowed_updates=["message"]`, `drop_pending_updates=false`; simulate transient failures and recovery with bounded backoff; change URL during running service and assert re-registration/not-ready during mismatch. Assert logs/status never contain bot token or secret.
+- [ ] **Step 1 — RED:** Unit-test zero, one, and two matching HTTPS endpoints; reject a tunnel forwarding to another service. Fake `HttpMessageHandler`: verify every startup calls `setWebhook` even when `getWebhookInfo.url` already matches, with `secret_token`, `allowed_updates=["message"]`, `drop_pending_updates=false`; simulate transient failures and recovery with bounded backoff; change URL during running service and assert re-registration/not-ready during mismatch. Assert logs/status never contain bot token or secret.
 
 ```csharp
-// TelegramRegistrationTests.cs; JSON resembles local agent /api/tunnels response
+// TelegramRegistrationTests.cs; JSON resembles local agent /api/endpoints response
 public sealed class TelegramRegistrationTests
 {
 [Fact]
-public void AmbiguousMatchingTunnelsFailClosed()
+public void AmbiguousMatchingEndpointsFailClosed()
 {
     using var doc = JsonDocument.Parse("""
-      {"tunnels":[
-        {"public_url":"https://one.ngrok.app","config":{"addr":"http://api:8080"}},
-        {"public_url":"https://two.ngrok.app","config":{"addr":"http://api:8080"}}]}
+      {"endpoints":[
+        {"url":"https://one.ngrok.app","upstream":{"url":"http://api:8080"}},
+        {"url":"https://two.ngrok.app","upstream":{"url":"http://api:8080"}}]}
       """);
     Assert.Throws<InvalidOperationException>(() =>
         NgrokTunnelSelector.SelectHttpsApiTunnel(doc.RootElement));
 }
 [Theory]
-[InlineData("{\"tunnels\":[]}")]
-[InlineData("{\"tunnels\":[{\"public_url\":\"https://wrong.ngrok.app\",\"config\":{\"addr\":\"http://web:80\"}}]}")]
-public void NoMatchingApiTunnelFailsClosed(string json)
+[InlineData("{\"endpoints\":[]}")]
+[InlineData("{\"endpoints\":[{\"url\":\"https://wrong.ngrok.app\",\"upstream\":{\"url\":\"http://web:80\"}}]}")]
+public void NoMatchingApiEndpointFailsClosed(string json)
 {
     using var doc = JsonDocument.Parse(json);
     Assert.Throws<InvalidOperationException>(() =>
         NgrokTunnelSelector.SelectHttpsApiTunnel(doc.RootElement));
 }
 [Fact]
-public void OneHttpsApiTunnelWinsOverHttpTunnel()
+public void OneHttpsApiEndpointWinsOverHttpEndpoint()
 {
     using var doc = JsonDocument.Parse("""
-      {"tunnels":[{"public_url":"http://one.ngrok.app","config":{"addr":"http://api:8080"}},
-                  {"public_url":"https://one.ngrok.app","config":{"addr":"http://api:8080"}}]}
+      {"endpoints":[{"url":"http://one.ngrok.app","upstream":{"url":"http://api:8080"}},
+                  {"url":"https://one.ngrok.app","upstream":{"url":"http://api:8080"}}]}
       """);
     Assert.Equal("https://one.ngrok.app/",
         NgrokTunnelSelector.SelectHttpsApiTunnel(doc.RootElement).ToString());
@@ -991,7 +991,7 @@ private sealed class FakeTunnelClient(string url) : INgrokTunnelClient
 {
     public string PublicUrl { get; set; } = url;
     public Task<JsonDocument> GetTunnelsAsync(CancellationToken ct) => Task.FromResult(
-        JsonDocument.Parse($$"""{"tunnels":[{"public_url":"{{PublicUrl}}","config":{"addr":"http://api:8080"}}]}"""));
+        JsonDocument.Parse($$"""{"endpoints":[{"url":"{{PublicUrl}}","upstream":{"url":"http://api:8080"}}]}"""));
 }
 private sealed class FakeRegistrationClient : IRegistrationClient
 {
@@ -1110,7 +1110,7 @@ on_http_request:
     actions:
       - type: deny
 ```
-- [ ] **Step 3 — verify GREEN:** Run `docker compose config --quiet` with a temporary placeholder-only env file supplied via `--env-file`; run filtered/full tests. With valid local credentials only, inspect `docker compose ps`, `ngrok config check` inside the selected image, private `http://ngrok:4040/api/tunnels` response shape (`public_url`, forward target, exactly one HTTPS candidate), ngrok policy behavior (`POST` allowed, `GET /api/conversations` denied), API loopback and LAN reachability, and private-only agent API accessibility. This is the deferred actual-ngrok check from Task 6. Report credentialed checks separately; do not display Compose rendered secrets.
+- [ ] **Step 3 — verify GREEN:** Run `docker compose config --quiet` with a temporary placeholder-only env file supplied via `--env-file`; run filtered/full tests. With valid local credentials only, inspect `docker compose ps`, `ngrok config check` inside the selected image, private `http://ngrok:4040/api/endpoints` response shape (`url`, forward target, exactly one HTTPS candidate), ngrok policy behavior (`POST` allowed, `GET /api/conversations` denied), API loopback and LAN reachability, and private-only agent API accessibility. This is the deferred actual-ngrok check from Task 6. Report credentialed checks separately; do not display Compose rendered secrets.
 
 ```bash
 tmp_env="$(mktemp)"; trap 'rm -f "$tmp_env"' EXIT
@@ -1134,171 +1134,30 @@ Official [ngrok v3 agent config](https://ngrok.com/docs/agent/config/v3) is the 
 
 **Files:** Task 8 integration tests, `README.md`, and solution membership only. No Angular source changes.
 
-**Interfaces:** Tests use local disposable PostgreSQL/RabbitMQ containers and the actual API host. Optional live smoke requires explicit local credentials, never CI secrets in code or snapshots.
+**Interfaces:** Tests use local disposable PostgreSQL/RabbitMQ containers and the actual API host with registration explicitly disabled, so no ngrok or Telegram client is contacted. Optional live smoke requires explicit local credentials, never CI secrets in code or snapshots.
 
-- [ ] **Step 1 — RED:** `Integration/StackFixture.cs` starts `PostgresFixture` and `BrokerFixture` (pinned 17-alpine/4.3.6), creates an actual `WebApplicationFactory<Program>` with their connection strings, a test webhook secret, and fake `IRegistrationClient`/`INgrokTunnelClient` so no real Telegram/ngrok call occurs; it does **not** replace publisher, consumer, topology, migrations, or repository. The fixture must finish container startup and migration before RED. Add an integration test that sends an authenticated webhook, waits for one persisted message, queries both GET routes, repeats the update, restarts the consumer host, and asserts one message. Add broker-unavailable `5xx` and DB-outage retry/DLQ tests. Run `dotnet test src/backend/ChatInbox.Tests/ChatInbox.Tests.csproj --filter FullyQualifiedName~Integration`; RED is a failed product assertion after healthy fixtures, whereas container/restore/migration failure is environment-blocked. Keep a bounded timeout and diagnostic failure message without payload text.
+- [ ] **Step 1 — RED:** `Integration/StackFixture.cs` starts `PostgresFixture` and `BrokerFixture` (pinned 17-alpine/4.3.6), creates an actual `WebApplicationFactory<Program>` with their connection strings, a test webhook secret, and `Telegram:RegistrationEnabled=false` so no real Telegram/ngrok call occurs; it does **not** replace publisher, consumer, topology, migrations, or repository. The fixture must finish container startup and migration before a behavioral RED; an infrastructure or compilation failure is not RED. Add an integration test that sends an authenticated webhook, waits for one persisted message, queries both GET routes, repeats the update, restarts the consumer host, and asserts one message. Add broker-unavailable fail-closed (503 or stopped listener) and DB-outage retry/DLQ tests. A terminal broker shutdown deliberately stops the host, so an already-disposed test listener is not an HTTP 503. Run `dotnet test src/backend/ChatInbox.Tests/ChatInbox.Tests.csproj --filter FullyQualifiedName~Integration`; RED is a failed product assertion after healthy fixtures, whereas container/restore/migration failure is environment-blocked. Keep a bounded timeout and diagnostic failure message without payload text.
 
 ```csharp
-// Integration/StackFixture.cs: configuration overlay after both containers StartAsync
-namespace ChatInbox.Tests.Integration;
-public sealed class StackFixture : IAsyncLifetime
-{
-public PostgresFixture Postgres { get; } = new();
-public BrokerFixture Broker { get; } = new();
-public WebApplicationFactory<Program> Factory { get; private set; } = null!;
-public async Task InitializeAsync()
-{
-await Postgres.InitializeAsync();
-await Broker.InitializeAsync();
-Factory = BuildFactory();
-using var startedClient = Factory.CreateClient(); // forces migration/topology/consumer startup
-}
-public void RestartHost()
-{
-    Factory.Dispose();
-    Factory = BuildFactory();
-    using var startedClient = Factory.CreateClient();
-}
-private WebApplicationFactory<Program> BuildFactory() =>
-new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder
-    .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
-        new Dictionary<string, string?> {
-            ["ConnectionStrings:Inbox"] = Postgres.ConnectionString,
-            ["RabbitMq:Uri"] = Broker.AmqpUri,
-            ["Telegram:WebhookSecret"] = "test_secret_123",
-            ["Telegram:BotToken"] = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"
-        }))
-    .ConfigureTestServices(services => {
-        services.AddSingleton<IRegistrationClient, FakeRegistrationClient>();
-        services.AddSingleton<INgrokTunnelClient, FakeNgrokTunnelClient>();
-    }));
-public async Task DisposeAsync()
-{
-    Factory.Dispose();
-    await Broker.DisposeAsync();
-    await Postgres.DisposeAsync();
-}
-// FakeRegistrationClient and FakeNgrokTunnelClient are top-level types in this file.
-}
-// Integration/InboundFlowTests.cs: inspect persisted queries, not mocked publish calls
-// This is a separate file with namespace ChatInbox.Tests.Integration.
-public sealed class InboundFlowTests(StackFixture _stack) : IClassFixture<StackFixture>
-{
-[Fact]
-public async Task DuplicateWebhookIsOneVisibleMessage()
-{
-    using var client = _stack.Factory.CreateClient();
-    using var first = await SendAuthenticatedUpdateAsync(client, updateId: 3001);
-    Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-    await WaitForMessageAsync(client, telegramMessageId: 7001, TimeSpan.FromSeconds(10));
-    using var repeated = await SendAuthenticatedUpdateAsync(client, updateId: 3001);
-    Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
-    Assert.Equal(1, await CountMessagesAsync(client, telegramMessageId: 7001));
-    _stack.RestartHost();
-    using var afterRestart = _stack.Factory.CreateClient();
-    using var third = await SendAuthenticatedUpdateAsync(afterRestart, updateId: 3001);
-    Assert.Equal(HttpStatusCode.OK, third.StatusCode);
-    Assert.Equal(1, await CountMessagesAsync(afterRestart, telegramMessageId: 7001));
-}
-[Fact]
-public async Task BrokerUnavailableReturnsRetryableHttpFailure()
-{
-    using var client = _stack.Factory.CreateClient();
-    try {
-        await _stack.Broker.Container.StopAsync();
-        using var response = await SendAuthenticatedUpdateAsync(client, updateId: 3002);
-        Assert.True((int)response.StatusCode >= 500);
-    } finally {
-        await _stack.Broker.Container.StartAsync();
-        _stack.RestartHost();
-    }
-}
-[Fact]
-public async Task DatabaseOutageRetriesAndDeadLettersWithoutVisibleMessage()
-{
-    using var client = _stack.Factory.CreateClient();
-    try {
-        await _stack.Postgres.Container.StopAsync();
-        using var accepted = await SendAuthenticatedUpdateAsync(client, updateId: 3003);
-        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode); // broker confirm, not DB commit
-        await WaitUntilAsync(async () => await DeadLetterCountAsync() > 0,
-            TimeSpan.FromSeconds(160));
-    } finally {
-        await _stack.Postgres.Container.StartAsync();
-        _stack.RestartHost();
-    }
-    using var afterRecovery = _stack.Factory.CreateClient();
-    Assert.Equal(0, await CountMessagesAsync(afterRecovery, telegramMessageId: 7003));
-}
-private async Task<int> DeadLetterCountAsync()
-{
-    using var http = new HttpClient { BaseAddress = _stack.Broker.ManagementUri };
-    http.DefaultRequestHeaders.Authorization = new("Basic",
-        Convert.ToBase64String(Encoding.ASCII.GetBytes("guest:guest")));
-    using var response = await http.GetAsync("api/queues/%2F/chat-inbox.dead.q");
-    response.EnsureSuccessStatusCode();
-    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-    return json.RootElement.GetProperty("messages").GetInt32();
-}
-private static async Task<HttpResponseMessage> SendAuthenticatedUpdateAsync(HttpClient client, long updateId)
-{
-    using var request = new HttpRequestMessage(HttpMethod.Post, "/webhooks/telegram") {
-        Content = JsonContent.Create(new {
-            update_id = updateId,
-            message = new { message_id = 4000L + updateId, date = 1780000000L,
-                chat = new { id = 8001L }, text = "hello" }
-        })
-    };
-    request.Headers.Add("X-Telegram-Bot-Api-Secret-Token", "test_secret_123");
-    return await client.SendAsync(request);
-}
-private static async Task<int> CountMessagesAsync(HttpClient client, long telegramMessageId)
-{
-    var conversations = await client.GetFromJsonAsync<Page<ConversationDto>>(
-        "/api/conversations?limit=100");
-    var conversation = conversations!.Items.SingleOrDefault(x => x.TelegramChatId == 8001L);
-    if (conversation is null) return 0;
-    var page = await client.GetFromJsonAsync<Page<MessageDto>>(
-        $"/api/conversations/{conversation.Id}/messages?limit=100");
-    return page!.Items.Count(x => x.TelegramMessageId == telegramMessageId);
-}
-private static async Task WaitForMessageAsync(HttpClient client, long telegramMessageId, TimeSpan timeout)
-{
-    var deadline = DateTimeOffset.UtcNow + timeout;
-    while (DateTimeOffset.UtcNow < deadline) {
-        if (await CountMessagesAsync(client, telegramMessageId) == 1) return;
-        await Task.Delay(50);
-    }
-    throw new TimeoutException("Inbound message was not visible before the deadline");
-}
-private static async Task WaitUntilAsync(Func<Task<bool>> predicate, TimeSpan timeout)
-{
-    using var deadline = new CancellationTokenSource(timeout);
-    while (!await predicate()) {
-        deadline.Token.ThrowIfCancellationRequested();
-        await Task.Delay(100, deadline.Token);
-    }
-}
-}
+// Integration/StackFixture.cs: actual Program host, real local dependencies.
+Factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder
+    .UseSetting("ConnectionStrings:Postgres", Postgres.ConnectionString)
+    .UseSetting("RabbitMQ:Uri", Broker.AmqpUri)
+    .UseSetting("Telegram:WebhookSecret", WebhookSecret)
+    .UseSetting("Telegram:RegistrationEnabled", "false"));
+using var startedClient = Factory.CreateClient(); // migration and hosted services start
+
+// Integration/InboundFlowTests.cs uses unique long update/chat/message IDs and
+// parses the actual camelCase JSON from GET /api/conversations and
+// GET /api/conversations/{id}/messages. It waits for DB/queue/DLQ outcomes,
+// including after a host restart, rather than waiting an arbitrary duration.
 ```
-- [ ] **Step 2 — GREEN:** Wire disposable containers and test host so production DI/topology/migrations/consumer run; replace only external Telegram registration and secrets. Make the tests deterministic through queue-state and DB-state conditions, not arbitrary sleeps. Write README commands for `.env` setup, `docker compose up --build`, local queries, readiness and broker diagnostics, optional `getWebhookInfo` verification, secret-safe troubleshooting, replay-from-DLQ procedure after fixing cause, and shutdown behavior. State that public GETs, outbound, SignalR, and Angular inbox remain out of scope.
+- [ ] **Step 2 — GREEN:** Wire disposable containers and test host so production DI/topology/migrations/consumer run; disable only external Telegram registration and supply test secrets. Make the tests deterministic through queue-state and DB-state conditions, not arbitrary sleeps. Write README commands for `.env` setup, `docker compose up --build`, local queries, readiness and broker diagnostics, optional `getWebhookInfo` verification, secret-safe troubleshooting, replay-from-DLQ procedure after fixing cause, and shutdown behavior. State that public GETs, outbound, SignalR, and Angular inbox remain out of scope.
 
 ```csharp
-// Integration/StackFixture.cs: fake only the external registration clients
-internal sealed class FakeRegistrationClient : IRegistrationClient
-{
-    private Uri? _url;
-    public Task SetWebhookAsync(Uri url, string secret, CancellationToken ct)
-    { _url = url; return Task.CompletedTask; }
-    public Task<WebhookInfo> GetWebhookInfoAsync(CancellationToken ct) =>
-        Task.FromResult(new WebhookInfo(_url?.ToString(), 0, null));
-}
-internal sealed class FakeNgrokTunnelClient : INgrokTunnelClient
-{
-    public Task<JsonDocument> GetTunnelsAsync(CancellationToken ct) => Task.FromResult(
-        JsonDocument.Parse("""{"tunnels":[{"public_url":"https://test.ngrok.app","config":{"addr":"http://api:8080"}}]}"""));
-}
-// WebhookInfo is the Task 6 record: (string? Url, int PendingCount, string? LastError).
+// Integration/StackFixture.cs: registration is explicitly disabled in the local host
+// Production publisher, consumer, repository, and migrations remain active.
+
 ```
 - [ ] **Step 3 — verify GREEN and REFACTOR:** Run `dotnet test src/backend/ChatInbox.slnx`, `dotnet build src/backend/ChatInbox.slnx --no-restore`, `docker compose config --quiet` with placeholder-only env file, and `git diff --check`. Credentialed smoke, when available: `docker compose up --build`, compare `getWebhookInfo.url` with discovered HTTPS URL plus path, send a real Telegram message, query local GETs, exercise missing-secret rejection, and confirm public GET/LAN denial. Record each command/result; no credentialed smoke means explicitly **not verified live**. Do not claim an image health check proves the Telegram path.
 
@@ -1334,4 +1193,4 @@ Evidence tiers: (1) unit/component fakes, (2) real PostgreSQL/RabbitMQ container
 - Every Task 1–8 RED and GREEN code step includes concrete task-local C# or configuration examples. Tasks 1, 2, 3, 4, 6, and 8 show assertions for each listed RED behavior, not just a representative case. Container fixtures have pinned images and environment failure is never counted as a valid RED. The repository-local EF tool manifest and exact package versions remove machine-global migration assumptions.
 - Named test helpers and class fixtures used in examples are defined in their owning task's snippet; Task 2's unbound exchange is explicitly declared without a binding and its outcome requires **both** `BasicReturnAsync` and positive `BasicAcksAsync` evidence. Task 1's factory supplies both mandatory Telegram options. `Application` query DTOs do not reference infrastructure entities.
 - The five Review Focus conditions each have an owning RED test. No source implementation is authorized by this document alone; review the plan before execution.
-- External uncertainty remains deliberately visible: RabbitMQ 4.3.6 AMQP `basic.reject` retry/dead-letter behavior, the selected ngrok image's config/Traffic Policy syntax, and whether its local API exposes a v3 endpoint through `/api/tunnels` with `public_url`/upstream details require live container checks. If either provider contract fails, stop and revise the approved design instead of silently weakening it.
+- External uncertainty remains deliberately visible: RabbitMQ 4.3.6 AMQP `basic.reject` retry/dead-letter behavior, the selected ngrok image's config/Traffic Policy syntax, and the configured v3 `/api/endpoints` response and public policy behavior require selected-image and credentialed checks. If either provider contract fails, stop and revise the approved design instead of silently weakening it.

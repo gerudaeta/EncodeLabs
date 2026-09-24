@@ -5,10 +5,18 @@ namespace ChatInbox.Tests.Integration;
 
 public sealed class BrokerFixture : IAsyncLifetime
 {
-    public RabbitMqContainer Container { get; } =
-        new RabbitMqBuilder("rabbitmq:4.3.6-management")
-            .WithPortBinding(15672, true)
-            .Build();
+    public BrokerFixture() : this(null) { }
+
+    internal BrokerFixture(int? fixedAmqpHostPort)
+    {
+        var builder = new RabbitMqBuilder("rabbitmq:4.3.6-management")
+            .WithPortBinding(15672, true);
+        if (fixedAmqpHostPort is int port)
+            builder = builder.WithPortBinding(port, 5672);
+        Container = builder.Build();
+    }
+
+    public RabbitMqContainer Container { get; }
 
     public Task InitializeAsync() => Container.StartAsync();
 

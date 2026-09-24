@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Net.Http.Headers;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using ChatInbox.Application.Inbound;
 using ChatInbox.Infrastructure.Messaging;
@@ -52,6 +54,7 @@ public sealed class RabbitPublisherTests(BrokerFixture broker) : IClassFixture<B
             .CreateConnectionAsync();
         await using var channel = await connection.CreateChannelAsync();
         await RabbitTopology.DeclareAsync(channel, CancellationToken.None);
+        await channel.QueuePurgeAsync(RabbitTopology.InboundQueue);
 
         await using var publisher = await RabbitInboundPublisher.ConnectAsync(
             broker.AmqpUri, RabbitTopology.InboundExchange, TimeSpan.FromSeconds(5));
@@ -86,21 +89,41 @@ public sealed class RabbitPublisherTests(BrokerFixture broker) : IClassFixture<B
     [Fact]
     public async Task ConnectionLossBeforeConfirmCannotReportSuccess()
     {
-        var isolated = new BrokerFixture();
+        var isolated = new BrokerFixture(ReserveAvailablePort());
         await isolated.InitializeAsync();
         try
         {
+            await using var connection = await new ConnectionFactory { Uri = new Uri(isolated.AmqpUri) }
+                .CreateConnectionAsync();
+            await using var channel = await connection.CreateChannelAsync();
+            await RabbitTopology.DeclareAsync(channel, CancellationToken.None);
             await using var publisher = await RabbitInboundPublisher.ConnectAsync(
                 isolated.AmqpUri, RabbitTopology.InboundExchange, TimeSpan.FromSeconds(5));
+            await publisher.PublishConfirmedAsync(
+                new(1, 74, 8, 9, DateTimeOffset.UtcNow, "before outage", null, null, null, null),
+                CancellationToken.None);
             await isolated.Container.StopAsync();
             await Assert.ThrowsAsync<PublishNotConfirmedException>(() => publisher.PublishConfirmedAsync(
-                new(1, 74, 8, 9, DateTimeOffset.UtcNow, "hi", null, null, null, null),
+                new(1, 75, 8, 9, DateTimeOffset.UtcNow, "during outage", null, null, null, null),
                 CancellationToken.None));
+            await isolated.Container.StartAsync();
+            await publisher.PublishConfirmedAsync(
+                new(1, 76, 8, 9, DateTimeOffset.UtcNow, "after outage", null, null, null, null),
+                CancellationToken.None);
         }
         finally
         {
             await isolated.DisposeAsync();
         }
+    }
+
+    private static int ReserveAvailablePort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
     }
 
     [Fact]
@@ -114,5 +137,55 @@ public sealed class RabbitPublisherTests(BrokerFixture broker) : IClassFixture<B
         await Assert.ThrowsAsync<PublishNotConfirmedException>(() => publisher.PublishConfirmedAsync(
             new(1, 75, 8, 9, DateTimeOffset.UtcNow, "hi", null, null, null, null),
             cancellation.Token));
+        await publisher.PublishConfirmedAsync(
+            new(1, 77, 8, 9, DateTimeOffset.UtcNow, "after cancellation", null, null, null, null),
+            CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task TimedOutInFlightPublishCanBeFollowedByFreshConfirmedPublish()
+    {
+        await using var connection = await new ConnectionFactory { Uri = new Uri(broker.AmqpUri) }
+            .CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await RabbitTopology.DeclareAsync(channel, CancellationToken.None);
+        await using var publisher = await RabbitInboundPublisher.ConnectAsync(
+            broker.AmqpUri, RabbitTopology.InboundExchange, TimeSpan.FromSeconds(5));
+        await broker.Container.PauseAsync();
+        var unpause = Task.Run(async () =>
+        {
+            await Task.Delay(300);
+            await broker.Container.UnpauseAsync();
+        });
+        try
+        {
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            await Assert.ThrowsAsync<PublishNotConfirmedException>(() => publisher.PublishConfirmedAsync(
+                new(1, 80, 8, 9, DateTimeOffset.UtcNow, "uncertain", null, null, null, null),
+                cancellation.Token));
+            await unpause;
+            await publisher.PublishConfirmedAsync(
+                new(1, 81, 8, 9, DateTimeOffset.UtcNow, "confirmed later", null, null, null, null),
+                CancellationToken.None);
+        }
+        finally
+        {
+            await unpause;
+        }
+    }
+
+    [Fact]
+    public async Task HostedPublisherStopsAndRejectsFurtherPublication()
+    {
+        var service = new RabbitPublisherHostedService(broker.AmqpUri, TimeSpan.FromSeconds(5));
+        await service.StartAsync(CancellationToken.None);
+        await service.PublishConfirmedAsync(
+            new(1, 78, 8, 9, DateTimeOffset.UtcNow, "before stop", null, null, null, null),
+            CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
+
+        await Assert.ThrowsAsync<PublishNotConfirmedException>(() => service.PublishConfirmedAsync(
+            new(1, 79, 8, 9, DateTimeOffset.UtcNow, "after stop", null, null, null, null),
+            CancellationToken.None));
     }
 }

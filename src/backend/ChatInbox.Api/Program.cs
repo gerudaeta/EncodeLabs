@@ -2,7 +2,6 @@ using ChatInbox.Api;
 using ChatInbox.Application.Inbound;
 using ChatInbox.Infrastructure.Messaging;
 using ChatInbox.Infrastructure.Telegram;
-using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,15 +16,11 @@ if (string.IsNullOrWhiteSpace(amqpUri))
 }
 else
 {
-    var factory = new ConnectionFactory { Uri = new Uri(amqpUri), AutomaticRecoveryEnabled = false };
-    await using (var topologyConnection = await factory.CreateConnectionAsync())
-    await using (var topologyChannel = await topologyConnection.CreateChannelAsync())
-    {
-        await RabbitTopology.DeclareAsync(topologyChannel, CancellationToken.None);
-    }
-    var publisher = await RabbitInboundPublisher.ConnectAsync(
-        amqpUri, RabbitTopology.InboundExchange, TimeSpan.FromSeconds(5));
-    builder.Services.AddSingleton<IInboundPublisher>(publisher);
+    builder.Services.AddSingleton(new RabbitPublisherHostedService(amqpUri, TimeSpan.FromSeconds(5)));
+    builder.Services.AddSingleton<IInboundPublisher>(services =>
+        services.GetRequiredService<RabbitPublisherHostedService>());
+    builder.Services.AddSingleton<IHostedService>(services =>
+        services.GetRequiredService<RabbitPublisherHostedService>());
 }
 
 var app = builder.Build();

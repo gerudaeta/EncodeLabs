@@ -27,7 +27,7 @@ The merged foundation contains runnable application shells and supporting contai
 
 ## Tasks
 
-- [ ] **INB-01 — Webhook intake:** Authenticated, bounded Telegram text mapping and component tests.
+- [x] **INB-01 — Webhook intake:** Authenticated, bounded Telegram text mapping and component tests.
 - [ ] **INB-02 — Broker publication:** Durable topology and mandatory publisher confirms/return handling against pinned RabbitMQ.
 - [ ] **INB-03 — PostgreSQL store:** Transactional conversation/message model, preview, idempotency, migration, and integration tests.
 - [ ] **INB-04 — Consumer:** Same-host manual acknowledgement, bounded retry, and dead-letter behavior.
@@ -46,9 +46,10 @@ The merged foundation contains runnable application shells and supporting contai
 
 ## Progress and verification
 
-- 2026-09-24: User approved the design and implementation plan. Plan commit `c186624` passed a narrow independent plan review; no source behavior has been implemented.
-- Checks pending: all task checks and final branch review.
+- 2026-09-24: User approved the design and implementation plan. Plan commit `c186624` passed a narrow independent plan review before source implementation began.
+- 2026-09-24 INB-01: Commits `3b6ef08` and `3bf0d11` added the webhook endpoint, envelope contract, validated options, and component tests. TDD RED was observed for absent route and malformed-message behavior. The implementer reported full solution tests 21/21; the parent independently reran scoped webhook tests 21/21. Independent static review approved after fixing malformed present `message` payloads to return `400` while valid non-text messages remain ignored with `200`. Until INB-02 wires a broker, the placeholder publisher returns `503`; no Telegram/RabbitMQ live behavior is claimed.
+- Checks pending: INB-02 through INB-08, provider/container validation, and final branch review.
 
 ## Next step
 
-Execute INB-01 with observed RED, GREEN, REFACTOR, then review and update this file and its Engram mirror before INB-02.
+Execute INB-02 with observed RED, GREEN, REFACTOR, then review and update this file and its Engram mirror before INB-03.

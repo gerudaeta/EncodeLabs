@@ -28,7 +28,7 @@ The merged foundation contains runnable application shells and supporting contai
 ## Tasks
 
 - [x] **INB-01 — Webhook intake:** Authenticated, bounded Telegram text mapping and component tests.
-- [ ] **INB-02 — Broker publication:** Durable topology and mandatory publisher confirms/return handling against pinned RabbitMQ.
+- [x] **INB-02 — Broker publication:** Durable topology and mandatory publisher confirms/return handling against pinned RabbitMQ.
 - [ ] **INB-03 — PostgreSQL store:** Transactional conversation/message model, preview, idempotency, migration, and integration tests.
 - [ ] **INB-04 — Consumer:** Same-host manual acknowledgement, bounded retry, and dead-letter behavior.
 - [ ] **INB-05 — Read APIs:** Stable keyset queries and local-only conversation/message endpoints.
@@ -48,8 +48,9 @@ The merged foundation contains runnable application shells and supporting contai
 
 - 2026-09-24: User approved the design and implementation plan. Plan commit `c186624` passed a narrow independent plan review before source implementation began.
 - 2026-09-24 INB-01: Commits `3b6ef08` and `3bf0d11` added the webhook endpoint, envelope contract, validated options, and component tests. TDD RED was observed for absent route and malformed-message behavior. The implementer reported full solution tests 21/21; the parent independently reran scoped webhook tests 21/21. Independent static review approved after fixing malformed present `message` payloads to return `400` while valid non-text messages remain ignored with `200`. Until INB-02 wires a broker, the placeholder publisher returns `503`; no Telegram/RabbitMQ live behavior is claimed.
-- Checks pending: INB-02 through INB-08, provider/container validation, and final branch review.
+- 2026-09-24 INB-02: Commits `16635ed`, `6e3f9b9`, and `4244119` added durable topology and a serialized publisher with mandatory returns and positive confirms, plus recovery/disposal fixes and self-contained tests. A clean cancellation RED was observed after pinned-broker setup. The implementer reported 7/7 broker tests and 28/28 full-solution tests; the parent independently reran the broker group 7/7 and the formerly order-dependent cancellation test alone 1/1. Independent static review approved after correcting publisher recovery, host ownership, and test isolation. This proves local broker publication, not retry/DLQ disposition, database persistence, or live Telegram delivery.
+- Checks pending: INB-03 through INB-08, retry/DLQ and ngrok/Compose validation, and final branch review.
 
 ## Next step
 
-Execute INB-02 with observed RED, GREEN, REFACTOR, then review and update this file and its Engram mirror before INB-03.
+Execute INB-03 with observed RED, GREEN, REFACTOR, then review and update this file and its Engram mirror before INB-04.

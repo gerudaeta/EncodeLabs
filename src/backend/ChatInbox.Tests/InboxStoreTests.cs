@@ -124,6 +124,36 @@ public sealed class InboxStoreTests(PostgresFixture postgres) : IClassFixture<Po
         Assert.Equal("first", row.LastMessagePreview);
     }
 
+    [Fact]
+    public async Task LateMessageCannotOverwriteNewerDisplayName()
+    {
+        var newer = NewUpdate(701, 906, 51, "new") with { ChatTitle = "Current name" };
+        var older = newer with { UpdateId = 702, MessageId = 50,
+            SentAt = newer.SentAt.AddMinutes(-1), Text = "old", ChatTitle = "Stale name" };
+        Assert.Equal(StoreOutcome.Inserted, await StoreAsync(newer));
+        Assert.Equal(StoreOutcome.Inserted, await StoreAsync(older));
+
+        await using var db = OpenDb();
+        var row = await db.Conversations.SingleAsync(x => x.TelegramChatId == newer.ChatId);
+        Assert.Equal("Current name", row.DisplayName);
+        Assert.Equal("new", row.LastMessagePreview);
+    }
+
+    [Fact]
+    public async Task EqualTimestampLowerMessageIdCannotOverwriteDisplayName()
+    {
+        var higher = NewUpdate(711, 907, 82, "higher") with { ChatTitle = "Higher name" };
+        var lower = higher with { UpdateId = 712, MessageId = 81,
+            Text = "lower", ChatTitle = "Lower name" };
+        Assert.Equal(StoreOutcome.Inserted, await StoreAsync(higher));
+        Assert.Equal(StoreOutcome.Inserted, await StoreAsync(lower));
+
+        await using var db = OpenDb();
+        var row = await db.Conversations.SingleAsync(x => x.TelegramChatId == higher.ChatId);
+        Assert.Equal("Higher name", row.DisplayName);
+        Assert.Equal(82, row.LastTelegramMessageId);
+    }
+
     private async Task<StoreOutcome> StoreAsync(InboundTelegramUpdate update)
     {
         await using var db = OpenDb();

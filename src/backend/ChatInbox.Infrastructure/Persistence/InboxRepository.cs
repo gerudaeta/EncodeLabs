@@ -29,7 +29,11 @@ public sealed class InboxRepository(InboxDbContext db) : IInboundStore
                 VALUES ({Guid.NewGuid()}, {update.ChatId}, {displayName},
                     {update.SentAt}, {update.MessageId}, {update.Text})
                 ON CONFLICT (telegram_chat_id) DO UPDATE SET
-                    display_name = COALESCE(EXCLUDED.display_name, conversations.display_name),
+                    display_name = CASE WHEN conversations.last_message_at IS NULL OR
+                        (EXCLUDED.last_message_at, EXCLUDED.last_telegram_message_id) >
+                        (conversations.last_message_at, conversations.last_telegram_message_id)
+                        THEN COALESCE(EXCLUDED.display_name, conversations.display_name)
+                        ELSE conversations.display_name END,
                     last_message_at = CASE WHEN conversations.last_message_at IS NULL OR
                         (EXCLUDED.last_message_at, EXCLUDED.last_telegram_message_id) >
                         (conversations.last_message_at, conversations.last_telegram_message_id)

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ChatInbox.Api/ChatInbox.Api.csproj" />
+  <Project Path="ChatInbox.Application/ChatInbox.Application.csproj" />
+  <Project Path="ChatInbox.Domain/ChatInbox.Domain.csproj" />
+  <Project Path="ChatInbox.Infrastructure/ChatInbox.Infrastructure.csproj" />
+</Solution>

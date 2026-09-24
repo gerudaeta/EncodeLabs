@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+.atl
+.superpowers
+docs
+odd
+README.md
+src/frontend
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular

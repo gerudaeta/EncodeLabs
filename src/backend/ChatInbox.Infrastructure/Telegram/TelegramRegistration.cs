@@ -10,29 +10,30 @@ public static class NgrokTunnelSelector
 {
     public static Uri SelectHttpsApiTunnel(JsonElement response)
     {
-        if (!response.TryGetProperty("tunnels", out var tunnels) ||
-            tunnels.ValueKind != JsonValueKind.Array)
-            throw new InvalidOperationException("Ngrok tunnel response is invalid.");
+        if (response.ValueKind != JsonValueKind.Object ||
+            !response.TryGetProperty("endpoints", out var endpoints) ||
+            endpoints.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("Ngrok endpoint response is invalid.");
 
         var matches = new List<Uri>();
-        foreach (var tunnel in tunnels.EnumerateArray())
+        foreach (var endpoint in endpoints.EnumerateArray())
         {
-            if (tunnel.ValueKind != JsonValueKind.Object ||
-                !tunnel.TryGetProperty("public_url", out var publicUrl) ||
+            if (endpoint.ValueKind != JsonValueKind.Object ||
+                !endpoint.TryGetProperty("url", out var publicUrl) ||
                 publicUrl.ValueKind != JsonValueKind.String ||
                 !Uri.TryCreate(publicUrl.GetString(), UriKind.Absolute, out var uri) ||
                 uri.Scheme != Uri.UriSchemeHttps ||
                 uri.UserInfo.Length != 0 || uri.AbsolutePath != "/" ||
                 uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
-                !tunnel.TryGetProperty("config", out var config) ||
-                config.ValueKind != JsonValueKind.Object ||
-                !config.TryGetProperty("addr", out var addr) ||
-                addr.ValueKind != JsonValueKind.String ||
-                addr.GetString() != "http://api:8080") continue;
+                !endpoint.TryGetProperty("upstream", out var upstream) ||
+                upstream.ValueKind != JsonValueKind.Object ||
+                !upstream.TryGetProperty("url", out var upstreamUrl) ||
+                upstreamUrl.ValueKind != JsonValueKind.String ||
+                upstreamUrl.GetString() != "http://api:8080") continue;
             matches.Add(uri);
         }
         if (matches.Count != 1)
-            throw new InvalidOperationException("Ngrok must expose exactly one HTTPS API tunnel.");
+            throw new InvalidOperationException("Ngrok must expose exactly one HTTPS API endpoint.");
         return matches[0];
     }
 }
@@ -46,7 +47,7 @@ public sealed class NgrokTunnelClient(HttpClient client) : INgrokTunnelClient
 {
     public async Task<JsonDocument> GetTunnelsAsync(CancellationToken cancellationToken)
     {
-        using var response = await client.GetAsync("api/tunnels", cancellationToken);
+        using var response = await client.GetAsync("api/endpoints", cancellationToken);
         response.EnsureSuccessStatusCode();
         await using var content = await response.Content.ReadAsStreamAsync(cancellationToken);
         return await JsonDocument.ParseAsync(content, cancellationToken: cancellationToken);
@@ -170,9 +171,9 @@ public sealed class TelegramRegistration(
             if (!consumerReadiness.IsReady)
                 throw new IOException("Inbound consumer is not subscribed.");
             category = "ngrok_unavailable";
-            using var tunnels = await ngrok.GetTunnelsAsync(cancellationToken);
-            category = "ngrok_tunnel_selection";
-            var publicUrl = NgrokTunnelSelector.SelectHttpsApiTunnel(tunnels.RootElement);
+            using var endpoints = await ngrok.GetTunnelsAsync(cancellationToken);
+            category = "ngrok_endpoint_selection";
+            var publicUrl = NgrokTunnelSelector.SelectHttpsApiTunnel(endpoints.RootElement);
             var expected = new Uri(publicUrl, "/webhooks/telegram");
             if (_registeredUrl != expected)
             {

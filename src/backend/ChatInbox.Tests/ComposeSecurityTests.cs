@@ -39,6 +39,8 @@ public sealed class ComposeSecurityTests
         Assert.Contains("- ngrok", config);
         Assert.Contains("traffic_policy_file: /etc/ngrok/ngrok-policy.yml", config);
         Assert.Contains("url: http://api:8080", config);
+        Assert.Contains("endpoints:", config);
+        Assert.DoesNotContain("tunnels:", config);
     }
 
     [Fact]

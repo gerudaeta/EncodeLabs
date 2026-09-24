@@ -17,11 +17,12 @@ public sealed class TelegramRegistrationTests
     private const string Secret = "test_secret_123";
 
     [Theory]
-    [InlineData("{\"tunnels\":[]}")]
-    [InlineData("{\"tunnels\":[{\"public_url\":\"https://wrong.ngrok.app\",\"config\":{\"addr\":\"http://web:80\"}}]}")]
-    [InlineData("{\"tunnels\":[{\"public_url\":\"https://one.ngrok.app\",\"config\":{\"addr\":\"http://api:8080\"}},{\"public_url\":\"https://two.ngrok.app\",\"config\":{\"addr\":\"http://api:8080\"}}]}")]
-    [InlineData("{\"tunnels\":[{\"public_url\":\"https://user:password@one.ngrok.app\",\"config\":{\"addr\":\"http://api:8080\"}}]}")]
-    [InlineData("{\"tunnels\":[{\"public_url\":\"https://one.ngrok.app/other-path\",\"config\":{\"addr\":\"http://api:8080\"}}]}")]
+    [InlineData("{\"endpoints\":[]}")]
+    [InlineData("{\"endpoints\":[{\"url\":\"https://wrong.ngrok.app\",\"upstream\":{\"url\":\"http://web:80\"}}]}")]
+    [InlineData("{\"endpoints\":[{\"url\":\"https://one.ngrok.app\",\"upstream\":{\"url\":\"http://api:8080\"}},{\"url\":\"https://two.ngrok.app\",\"upstream\":{\"url\":\"http://api:8080\"}}]}")]
+    [InlineData("{\"endpoints\":[{\"url\":\"https://user:password@one.ngrok.app\",\"upstream\":{\"url\":\"http://api:8080\"}}]}")]
+    [InlineData("{\"endpoints\":[{\"url\":\"https://one.ngrok.app/other-path\",\"upstream\":{\"url\":\"http://api:8080\"}}]}")]
+    [InlineData("{\"tunnels\":[{\"public_url\":\"https://legacy.ngrok.app\",\"config\":{\"addr\":\"http://api:8080\"}}]}")]
     public void NoUniqueHttpsApiTunnelFailsClosed(string json)
     {
         using var document = JsonDocument.Parse(json);
@@ -33,10 +34,10 @@ public sealed class TelegramRegistrationTests
     public void SelectsOnlyHttpsTunnelForwardingToApi()
     {
         using var document = JsonDocument.Parse("""
-            {"tunnels":[
-              {"public_url":"http://one.ngrok.app","config":{"addr":"http://api:8080"}},
-              {"public_url":"https://wrong.ngrok.app","config":{"addr":"http://web:80"}},
-              {"public_url":"https://one.ngrok.app","config":{"addr":"http://api:8080"}}
+            {"endpoints":[
+              {"url":"http://one.ngrok.app","upstream":{"url":"http://api:8080"}},
+              {"url":"https://wrong.ngrok.app","upstream":{"url":"http://web:80"}},
+              {"url":"https://one.ngrok.app","upstream":{"url":"http://api:8080"}}
             ]}
             """);
         Assert.Equal("https://one.ngrok.app/",
@@ -87,16 +88,16 @@ public sealed class TelegramRegistrationTests
     }
 
     [Fact]
-    public async Task NgrokClientRequestsPrivateAgentTunnelsEndpoint()
+    public async Task NgrokClientRequestsPrivateAgentEndpointsResource()
     {
-        var handler = new RecordingHandler { ResponseBody = "{\"tunnels\":[]}" };
+        var handler = new RecordingHandler { ResponseBody = "{\"endpoints\":[]}" };
         using var http = new HttpClient(handler) { BaseAddress = new Uri("http://ngrok:4040/") };
         var client = new NgrokTunnelClient(http);
 
         using var response = await client.GetTunnelsAsync(CancellationToken.None);
 
-        Assert.Equal("http://ngrok:4040/api/tunnels", handler.LastUri!.ToString());
-        Assert.Empty(response.RootElement.GetProperty("tunnels").EnumerateArray());
+        Assert.Equal("http://ngrok:4040/api/endpoints", handler.LastUri!.ToString());
+        Assert.Empty(response.RootElement.GetProperty("endpoints").EnumerateArray());
     }
 
     [Fact]
@@ -249,7 +250,7 @@ public sealed class TelegramRegistrationTests
         {
             GetCalls++;
             return Task.FromResult(JsonDocument.Parse(JsonSerializer.Serialize(new {
-                tunnels = new[] { new { public_url = PublicUrl, config = new { addr = "http://api:8080" } } }
+                endpoints = new[] { new { url = PublicUrl, upstream = new { url = "http://api:8080" } } }
             })));
         }
     }

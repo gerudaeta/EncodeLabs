@@ -27,7 +27,7 @@ The repository has only an initial README. The technical challenge requires a re
 
 ## Tasks
 
-- [ ] **FND-01 — Backend foundation:** Create four .NET 10 projects and solution, establish the reference graph, remove template samples, and observe a successful solution build.
+- [x] **FND-01 — Backend foundation:** Created four .NET 10 projects and solution, established the reference graph, removed template samples, and observed a successful solution build.
 - [ ] **FND-02 — Frontend foundation:** Create Angular 22 standalone app and minimal inbox route without fake data, and observe a successful production build.
 - [ ] **FND-03 — Compose startup:** Create root Compose, Dockerfiles, `.env.example`, and ignore rules; validate configuration, image builds, and plain `docker compose up` when prerequisites exist.
 - [ ] **FND-04 — ADRs:** Deliver the three required one-page PostgreSQL, SignalR, and webhook/RabbitMQ decisions, with alternatives and consequences.
@@ -44,9 +44,10 @@ The repository has only an initial README. The technical challenge requires a re
 
 ## Progress and verification
 
-- 2026-09-24: Approved foundation design and plan updated for Compose and architecture deliverables. No source tasks completed yet.
-- Checks pending: .NET build, Angular build, Compose config/startup, ADR review, SVG parse/visual review, final diff, remote PR checks.
+- 2026-09-24: Approved foundation design and plan updated for Compose and architecture deliverables.
+- 2026-09-24 FND-01: Commit `771b185` created the four backend projects. `dotnet build src/backend/ChatInbox.slnx --no-restore -m:1 -nr:false -v minimal` independently passed with 0 warnings and 0 errors; task review passed. Ordinary NuGet network restore was unavailable, while an offline package-free restore was reported by the implementer. Generated `bin/` and `obj/` are untracked and must be ignored by FND-03.
+- Checks pending: Angular build, Compose config/startup, ADR review, SVG parse/visual review, final diff, remote PR checks.
 
 ## Next step
 
-Execute FND-01, then advance only after its observed checks; update this file and its Engram mirror after each task.
+Execute FND-02, then advance only after its observed checks; update this file and its Engram mirror after each task.

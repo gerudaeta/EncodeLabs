@@ -198,6 +198,28 @@ public sealed class TelegramRegistrationTests
     }
 
     [Fact]
+    public async Task RegistrationWaitsForApiListenerBeforeDiscoveringOrSettingWebhook()
+    {
+        var ngrok = new FakeTunnelClient();
+        var telegram = new FakeRegistrationClient();
+        var lifetime = new FakeHostLifetime();
+        var status = new RegistrationStatus();
+        var registration = NewRegistration(ngrok, telegram, status, lifetime: lifetime);
+
+        var pending = registration.ReconcileOnceAsync(CancellationToken.None);
+        Assert.False(pending.IsCompleted);
+        Assert.Equal(0, ngrok.GetCalls);
+        Assert.Equal(0, telegram.SetCalls);
+        Assert.False(status.IsReady);
+
+        lifetime.MarkStarted();
+        await pending;
+        Assert.Equal(1, ngrok.GetCalls);
+        Assert.Equal(1, telegram.SetCalls);
+        Assert.True(status.IsReady);
+    }
+
+    [Fact]
     public async Task ReadinessEndpointIsUnhealthyAndDoesNotExposeCredentialsBeforeRegistration()
     {
         await using var factory = new NoExternalServicesFactory();
@@ -214,16 +236,22 @@ public sealed class TelegramRegistrationTests
 
     private static TelegramRegistration NewRegistration(FakeTunnelClient ngrok,
         FakeRegistrationClient telegram, RegistrationStatus status,
-        CaptureLogger<TelegramRegistration>? logger = null, FakeConsumerReadiness? readiness = null) =>
-        new(ngrok, telegram, status, logger ?? new(), Options(), readiness ?? FakeConsumerReadiness.Ready());
+        CaptureLogger<TelegramRegistration>? logger = null, FakeConsumerReadiness? readiness = null,
+        FakeHostLifetime? lifetime = null) =>
+        new(ngrok, telegram, status, logger ?? new(), Options(), readiness ?? FakeConsumerReadiness.Ready(),
+            lifetime ?? FakeHostLifetime.Started());
 
     private sealed class FakeTunnelClient : INgrokTunnelClient
     {
         public string PublicUrl { get; set; } = "https://one.ngrok.app";
-        public Task<JsonDocument> GetTunnelsAsync(CancellationToken _) => Task.FromResult(
-            JsonDocument.Parse(JsonSerializer.Serialize(new {
+        public int GetCalls { get; private set; }
+        public Task<JsonDocument> GetTunnelsAsync(CancellationToken _)
+        {
+            GetCalls++;
+            return Task.FromResult(JsonDocument.Parse(JsonSerializer.Serialize(new {
                 tunnels = new[] { new { public_url = PublicUrl, config = new { addr = "http://api:8080" } } }
             })));
+        }
     }
 
     private static TelegramOptions Options() => new(Token, Secret);
@@ -241,6 +269,22 @@ public sealed class TelegramRegistrationTests
             var readiness = new FakeConsumerReadiness();
             readiness.MarkReady();
             return readiness;
+        }
+    }
+
+    private sealed class FakeHostLifetime : IHostApplicationLifetime
+    {
+        private readonly CancellationTokenSource _started = new();
+        public CancellationToken ApplicationStarted => _started.Token;
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+        public void StopApplication() { }
+        public void MarkStarted() => _started.Cancel();
+        public static FakeHostLifetime Started()
+        {
+            var lifetime = new FakeHostLifetime();
+            lifetime.MarkStarted();
+            return lifetime;
         }
     }
 

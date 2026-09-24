@@ -11,6 +11,18 @@ namespace ChatInbox.Tests;
 public sealed class ConsumerReadinessTests(BrokerFixture broker) : IClassFixture<BrokerFixture>
 {
     [Fact]
+    public async Task TerminalCallbackDuringSubscribeCannotPublishReadyAfterward()
+    {
+        var readiness = new ConsumerSubscriptionReadiness();
+        var waiting = readiness.WaitReadyAsync(CancellationToken.None);
+
+        readiness.MarkTerminal();
+        Assert.False(readiness.TryMarkSubscribed());
+        Assert.False(readiness.IsReady);
+        await Assert.ThrowsAsync<IOException>(() => waiting);
+    }
+
+    [Fact]
     public async Task ReadinessFollowsSuccessfulSubscriptionAndHostShutdown()
     {
         var connection = await new ConnectionFactory { Uri = new Uri(broker.AmqpUri) }

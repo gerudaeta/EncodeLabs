@@ -153,16 +153,19 @@ public sealed class TelegramRegistration(
     RegistrationStatus status,
     ILogger<TelegramRegistration> logger,
     TelegramOptions options,
-    IInboundConsumerReadiness consumerReadiness) : BackgroundService
+    IInboundConsumerReadiness consumerReadiness,
+    IHostApplicationLifetime hostLifetime) : BackgroundService
 {
     private Uri? _registeredUrl;
     private int _failureCount;
 
     internal async Task<TimeSpan> ReconcileOnceAsync(CancellationToken cancellationToken)
     {
-        var category = "consumer_unavailable";
+        var category = "listener_unavailable";
         try
         {
+            await WaitForApplicationStartedAsync(hostLifetime.ApplicationStarted, cancellationToken);
+            category = "consumer_unavailable";
             await consumerReadiness.WaitReadyAsync(cancellationToken);
             if (!consumerReadiness.IsReady)
                 throw new IOException("Inbound consumer is not subscribed.");
@@ -196,6 +199,16 @@ public sealed class TelegramRegistration(
             logger.LogWarning("Telegram registration unavailable: {Category}", category);
             return FailureDelay();
         }
+    }
+
+    private static async Task WaitForApplicationStartedAsync(
+        CancellationToken applicationStarted, CancellationToken cancellationToken)
+    {
+        if (applicationStarted.IsCancellationRequested) return;
+        var signal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var registration = applicationStarted.Register(static state =>
+            ((TaskCompletionSource)state!).TrySetResult(), signal);
+        await signal.Task.WaitAsync(cancellationToken);
     }
 
     private TimeSpan FailureDelay()

@@ -15,21 +15,53 @@ public interface IInboundConsumerReadiness
     Task WaitReadyAsync(CancellationToken cancellationToken);
 }
 
+internal sealed class ConsumerSubscriptionReadiness : IInboundConsumerReadiness
+{
+    private readonly object _gate = new();
+    private readonly TaskCompletionSource _subscribed =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private bool _ready;
+    private bool _terminal;
+
+    public bool IsReady { get { lock (_gate) return _ready; } }
+
+    public async Task WaitReadyAsync(CancellationToken cancellationToken)
+    {
+        await _subscribed.Task.WaitAsync(cancellationToken);
+        if (!IsReady) throw new IOException("Inbound consumer is not subscribed.");
+    }
+
+    public bool TryMarkSubscribed()
+    {
+        lock (_gate)
+        {
+            if (_terminal) return false;
+            _ready = true;
+            _subscribed.TrySetResult();
+            return true;
+        }
+    }
+
+    public void MarkTerminal()
+    {
+        lock (_gate)
+        {
+            _terminal = true;
+            _ready = false;
+            _subscribed.TrySetException(new IOException("Inbound consumer stopped before subscription."));
+        }
+    }
+}
+
 public sealed class InboundConsumer(
     IConnection connection,
     IServiceScopeFactory scopes,
     ILogger<InboundConsumer> logger) : BackgroundService, IInboundConsumerReadiness
 {
-    private readonly TaskCompletionSource _subscribed =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private volatile bool _isReady;
-    public bool IsReady => _isReady;
-
-    public async Task WaitReadyAsync(CancellationToken cancellationToken)
-    {
-        await _subscribed.Task.WaitAsync(cancellationToken);
-        if (!_isReady) throw new IOException("Inbound consumer is not subscribed.");
-    }
+    private readonly ConsumerSubscriptionReadiness _readiness = new();
+    public bool IsReady => _readiness.IsReady;
+    public Task WaitReadyAsync(CancellationToken cancellationToken) =>
+        _readiness.WaitReadyAsync(cancellationToken);
 
     private static readonly Meter Meter = new("ChatInbox.Inbound");
     private static readonly Counter<long> ProcessingFailures =
@@ -38,16 +70,8 @@ public sealed class InboundConsumer(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try { await RunAsync(stoppingToken); }
-        catch (Exception error)
-        {
-            _subscribed.TrySetException(error);
-            throw;
-        }
-        finally
-        {
-            _isReady = false;
-            _subscribed.TrySetCanceled(stoppingToken);
-        }
+        catch { _readiness.MarkTerminal(); throw; }
+        finally { _readiness.MarkTerminal(); }
     }
 
     private async Task RunAsync(CancellationToken stoppingToken)
@@ -59,25 +83,25 @@ public sealed class InboundConsumer(
         var terminal = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         Task OnCancelled(object _, ConsumerEventArgs __)
         {
-            _isReady = false;
+            _readiness.MarkTerminal();
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("consumer_cancelled");
             return Task.CompletedTask;
         }
         Task OnChannelShutdown(object _, ShutdownEventArgs __)
         {
-            _isReady = false;
+            _readiness.MarkTerminal();
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("channel_shutdown");
             return Task.CompletedTask;
         }
         Task OnConnectionShutdown(object _, ShutdownEventArgs __)
         {
-            _isReady = false;
+            _readiness.MarkTerminal();
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("connection_shutdown");
             return Task.CompletedTask;
         }
         Task OnCallbackException(object _, CallbackExceptionEventArgs __)
         {
-            _isReady = false;
+            _readiness.MarkTerminal();
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("consumer_callback_failure");
             return Task.CompletedTask;
         }
@@ -92,8 +116,8 @@ public sealed class InboundConsumer(
         {
             await channel.BasicConsumeAsync(RabbitTopology.InboundQueue,
                 autoAck: false, consumer, cancellationToken: stoppingToken);
-            _isReady = true;
-            _subscribed.TrySetResult();
+            if (!channel.IsOpen || !_readiness.TryMarkSubscribed())
+                throw new IOException("Inbound consumer stopped during subscription.");
             var category = await terminal.Task.WaitAsync(stoppingToken);
             logger.LogError("Inbound consumer stopped: {Category}", category);
             throw new IOException($"Inbound consumer stopped: {category}");

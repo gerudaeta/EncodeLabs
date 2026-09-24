@@ -12,6 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(new TelegramOptions(
     builder.Configuration["Telegram:BotToken"],
     builder.Configuration["Telegram:WebhookSecret"]));
+builder.Services.AddSingleton<RegistrationStatus>();
+builder.Services.AddSingleton<IRegistrationStatus>(services =>
+    services.GetRequiredService<RegistrationStatus>());
 var postgresConnection = builder.Configuration.GetConnectionString("Postgres");
 if (!string.IsNullOrWhiteSpace(postgresConnection))
 {
@@ -41,7 +44,25 @@ else
         }
             .CreateConnectionAsync();
         builder.Services.AddSingleton(consumerConnection);
-        builder.Services.AddHostedService<InboundConsumer>();
+        builder.Services.AddSingleton<InboundConsumer>();
+        builder.Services.AddSingleton<IInboundConsumerReadiness>(services =>
+            services.GetRequiredService<InboundConsumer>());
+        builder.Services.AddSingleton<IHostedService>(services =>
+            services.GetRequiredService<InboundConsumer>());
+        if (builder.Configuration.GetValue<bool>("Telegram:RegistrationEnabled"))
+        {
+            builder.Services.AddHttpClient<INgrokTunnelClient, NgrokTunnelClient>(client =>
+            {
+                client.BaseAddress = new Uri("http://ngrok:4040/");
+                client.Timeout = TimeSpan.FromSeconds(3);
+            });
+            builder.Services.AddHttpClient<IRegistrationClient, TelegramApiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.telegram.org/");
+                client.Timeout = TimeSpan.FromSeconds(10);
+            }).RemoveAllLoggers(); // The bot token is part of the request path.
+            builder.Services.AddHostedService<TelegramRegistration>();
+        }
     }
 }
 
@@ -57,6 +78,7 @@ try
     }
 
     app.MapTelegramWebhook();
+    app.MapReadiness();
     if (!string.IsNullOrWhiteSpace(postgresConnection))
         app.MapInboxQueries();
 

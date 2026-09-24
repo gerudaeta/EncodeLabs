@@ -9,16 +9,48 @@ using RabbitMQ.Client.Events;
 
 namespace ChatInbox.Infrastructure.Messaging;
 
+public interface IInboundConsumerReadiness
+{
+    bool IsReady { get; }
+    Task WaitReadyAsync(CancellationToken cancellationToken);
+}
+
 public sealed class InboundConsumer(
     IConnection connection,
     IServiceScopeFactory scopes,
-    ILogger<InboundConsumer> logger) : BackgroundService
+    ILogger<InboundConsumer> logger) : BackgroundService, IInboundConsumerReadiness
 {
+    private readonly TaskCompletionSource _subscribed =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private volatile bool _isReady;
+    public bool IsReady => _isReady;
+
+    public async Task WaitReadyAsync(CancellationToken cancellationToken)
+    {
+        await _subscribed.Task.WaitAsync(cancellationToken);
+        if (!_isReady) throw new IOException("Inbound consumer is not subscribed.");
+    }
+
     private static readonly Meter Meter = new("ChatInbox.Inbound");
     private static readonly Counter<long> ProcessingFailures =
         Meter.CreateCounter<long>("chatinbox.inbound.processing_failures");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        try { await RunAsync(stoppingToken); }
+        catch (Exception error)
+        {
+            _subscribed.TrySetException(error);
+            throw;
+        }
+        finally
+        {
+            _isReady = false;
+            _subscribed.TrySetCanceled(stoppingToken);
+        }
+    }
+
+    private async Task RunAsync(CancellationToken stoppingToken)
     {
         await using var channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
         await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 1, global: false,
@@ -27,21 +59,25 @@ public sealed class InboundConsumer(
         var terminal = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         Task OnCancelled(object _, ConsumerEventArgs __)
         {
+            _isReady = false;
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("consumer_cancelled");
             return Task.CompletedTask;
         }
         Task OnChannelShutdown(object _, ShutdownEventArgs __)
         {
+            _isReady = false;
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("channel_shutdown");
             return Task.CompletedTask;
         }
         Task OnConnectionShutdown(object _, ShutdownEventArgs __)
         {
+            _isReady = false;
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("connection_shutdown");
             return Task.CompletedTask;
         }
         Task OnCallbackException(object _, CallbackExceptionEventArgs __)
         {
+            _isReady = false;
             if (!stoppingToken.IsCancellationRequested) terminal.TrySetResult("consumer_callback_failure");
             return Task.CompletedTask;
         }
@@ -56,6 +92,8 @@ public sealed class InboundConsumer(
         {
             await channel.BasicConsumeAsync(RabbitTopology.InboundQueue,
                 autoAck: false, consumer, cancellationToken: stoppingToken);
+            _isReady = true;
+            _subscribed.TrySetResult();
             var category = await terminal.Task.WaitAsync(stoppingToken);
             logger.LogError("Inbound consumer stopped: {Category}", category);
             throw new IOException($"Inbound consumer stopped: {category}");

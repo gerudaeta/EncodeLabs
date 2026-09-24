@@ -4,10 +4,13 @@ using System.Text;
 using System.Text.Json;
 using ChatInbox.Application.Inbound;
 using ChatInbox.Infrastructure.Persistence;
+using ChatInbox.Infrastructure.Telegram;
 using ChatInbox.Tests.Integration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Xunit;
 using Xunit.Abstractions;
@@ -27,6 +30,7 @@ public sealed class InboxQueryTests(PostgresFixture postgres, BrokerFixture brok
             .UseSetting("ConnectionStrings:Postgres", postgres.ConnectionString)
             .UseSetting("RabbitMQ:Uri", broker.AmqpUri)
             .UseSetting("Telegram:WebhookSecret", "test_secret_123")
+            .UseSetting("Telegram:RegistrationEnabled", "false")
             .UseSetting("Telegram:BotToken", "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"));
         _client = _factory.CreateClient();
         return Task.CompletedTask;
@@ -36,6 +40,18 @@ public sealed class InboxQueryTests(PostgresFixture postgres, BrokerFixture brok
     {
         _client.Dispose();
         if (_factory is not null) await _factory.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisabledRegistrationWithReadyDependenciesDoesNotStartExternalClients()
+    {
+        Assert.Null(_factory!.Services.GetService<INgrokTunnelClient>());
+        Assert.Null(_factory.Services.GetService<IRegistrationClient>());
+        Assert.DoesNotContain(_factory.Services.GetServices<IHostedService>(),
+            service => service is TelegramRegistration);
+        using var response = await _client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Contains("registration_disabled", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

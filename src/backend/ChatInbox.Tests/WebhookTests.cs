@@ -189,5 +189,6 @@ public sealed class WebhookFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder) => builder
         .UseSetting("Telegram:BotToken", "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi")
         .UseSetting("Telegram:WebhookSecret", "test_secret_123")
+        .UseSetting("Telegram:RegistrationEnabled", "false")
         .ConfigureTestServices(services => services.AddSingleton<IInboundPublisher>(Publisher));
 }

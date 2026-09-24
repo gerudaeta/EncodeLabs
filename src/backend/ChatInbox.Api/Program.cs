@@ -4,6 +4,7 @@ using ChatInbox.Infrastructure.Messaging;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Infrastructure.Telegram;
 using Microsoft.EntityFrameworkCore;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,7 @@ if (!string.IsNullOrWhiteSpace(postgresConnection))
     builder.Services.AddScoped<IInboundStore, InboxRepository>();
 }
 var amqpUri = builder.Configuration["RabbitMQ:Uri"];
+IConnection? consumerConnection = null;
 if (string.IsNullOrWhiteSpace(amqpUri))
 {
     // Until Compose supplies the broker URI, intake remains explicitly unavailable.
@@ -29,19 +31,34 @@ else
         services.GetRequiredService<RabbitPublisherHostedService>());
     builder.Services.AddSingleton<IHostedService>(services =>
         services.GetRequiredService<RabbitPublisherHostedService>());
+    if (!string.IsNullOrWhiteSpace(postgresConnection))
+    {
+        consumerConnection = await new ConnectionFactory { Uri = new Uri(amqpUri) }
+            .CreateConnectionAsync();
+        builder.Services.AddSingleton(consumerConnection);
+        builder.Services.AddHostedService<InboundConsumer>();
+    }
 }
 
-var app = builder.Build();
-
-if (!string.IsNullOrWhiteSpace(postgresConnection))
+try
 {
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<InboxDbContext>()
-        .Database.MigrateAsync();
+    var app = builder.Build();
+
+    if (!string.IsNullOrWhiteSpace(postgresConnection))
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<InboxDbContext>()
+            .Database.MigrateAsync();
+    }
+
+    app.MapTelegramWebhook();
+
+    app.Run();
 }
-
-app.MapTelegramWebhook();
-
-app.Run();
+finally
+{
+    if (consumerConnection is not null)
+        await consumerConnection.DisposeAsync();
+}
 
 public partial class Program { }

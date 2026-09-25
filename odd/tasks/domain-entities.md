@@ -22,7 +22,7 @@ Enabled. Runner `dotnet test src/backend/ChatInbox.slnx`. For a behaviour-preser
 
 ## Tasks
 - [x] DOM-01 Move entities and rules to Domain, EF configuration in Infrastructure, schema unchanged, tests green.
-- [ ] DOM-02 Verify: full suite, Docker rebuild of api, live smoke check.
+- [x] DOM-02 Verify: full suite, Docker rebuild of api, live smoke check.
 
 ## Acceptance criteria
 - `ChatInbox.Domain` has no package/project references to EF or Infrastructure.
@@ -67,5 +67,9 @@ DOM-01 done (commit `refactor: move conversation and message entities to domain 
 - `dotnet test src/backend/ChatInbox.slnx`: 118/118 passed (Testcontainers PostgreSQL/RabbitMQ),
   0 failed, 0 skipped.
 
+DOM-02 done (parent): Domain csproj has no package/project references; `docker compose up -d --build api`
+OK; live `GET /api/conversations` 200, messages list returns `inbound`/`outbound` directions unchanged,
+`POST .../read` 204; no exceptions in api logs.
+
 ## Next step
-DOM-02 (Docker rebuild of api + live smoke check — parent-owned).
+Open PR to develop.

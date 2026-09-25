@@ -1,3 +1,15 @@
 @import "tailwindcss";
 
+/* Brand tokens taken from encodelabs.com.ar */
+@theme {
+  --font-sans: "Red Hat Display", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-5: oklch(0.951 0.012 201);
+  --color-brand-10: oklch(0.875 0.026 201);
+  --color-brand-50: oklch(0.499 0.082 209);
+  --color-brand-60: oklch(0.467 0.077 209);
+  --color-brand-70: oklch(0.382 0.066 215);
+  --color-brand-80: oklch(0.282 0.047 212);
+  --color-brand-indigo: oklch(0.371 0.163 269);
+}
+
 html, body { height: 100%; }

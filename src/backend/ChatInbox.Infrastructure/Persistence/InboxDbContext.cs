@@ -17,7 +17,7 @@ public sealed class Message
     public Guid Id { get; set; }
     public Guid ConversationId { get; set; }
     public long TelegramMessageId { get; set; }
-    public long TelegramUpdateId { get; set; }
+    public long? TelegramUpdateId { get; set; }
     public string Text { get; set; } = "";
     public DateTimeOffset SentAt { get; set; }
     public string Direction { get; set; } = "inbound";

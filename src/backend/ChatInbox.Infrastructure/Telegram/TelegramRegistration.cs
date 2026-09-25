@@ -86,7 +86,13 @@ public sealed class TelegramApiClient(HttpClient client, TelegramOptions options
             info.TryGetProperty("last_error_message", out var error) ? error.GetString() : null);
     }
 
-    private static async Task<JsonDocument> ReadResultAsync(HttpResponseMessage response,
+    private static Task<JsonDocument> ReadResultAsync(HttpResponseMessage response,
+        CancellationToken cancellationToken) => TelegramResponseReader.ReadResultAsync(response, cancellationToken);
+}
+
+internal static class TelegramResponseReader
+{
+    public static async Task<JsonDocument> ReadResultAsync(HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
         if (!response.IsSuccessStatusCode)

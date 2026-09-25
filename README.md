@@ -1,6 +1,6 @@
 # Chat Inbox
 
-Inbound Telegram text-message slice for the EncodeLabs conversational-inbox challenge. The .NET API validates a secret-bearing webhook, confirms durable RabbitMQ publication, consumes with manual acknowledgements, persists idempotently in PostgreSQL, and exposes local conversation/message queries. The Angular app is still a shell; outbound replies, SignalR, and a functional inbox UI are not implemented.
+Inbound Telegram text-message slice for the EncodeLabs conversational-inbox challenge. The .NET API validates a secret-bearing webhook, confirms durable RabbitMQ publication, consumes with manual acknowledgements, persists idempotently in PostgreSQL, and exposes local conversation/message queries. The Angular inbox at `http://localhost:4200` lists conversations and messages, sends operator replies through Telegram `sendMessage`, and refreshes through SignalR notifications (`/hubs/inbox`). Authentication and media messages are not implemented.
 
 ## Prerequisites and security boundary
 
@@ -26,7 +26,7 @@ curl -i http://127.0.0.1:8080/health/ready
 curl -i 'http://127.0.0.1:8080/api/conversations?limit=50'
 ```
 
-`/health/ready` returns 200 only when registration and consumer readiness are true; otherwise it returns 503 with a redacted failure category and any available pending-update count. The local GET routes use `limit` (1–100) and an opaque `nextCursor` returned by the previous page. For a known conversation ID, query `http://127.0.0.1:8080/api/conversations/{id}/messages?limit=50`. The Angular shell is at `http://localhost:4200/inbox` but is not yet connected to these APIs.
+`/health/ready` returns 200 only when registration and consumer readiness are true; otherwise it returns 503 with a redacted failure category and any available pending-update count. The local GET routes use `limit` (1–100) and an opaque `nextCursor` returned by the previous page. For a known conversation ID, query `http://127.0.0.1:8080/api/conversations/{id}/messages?limit=50`. The Angular inbox is at `http://localhost:4200/inbox`; nginx proxies `/api/` and `/hubs/` to the API, and the web container is bound to loopback because those routes are unauthenticated. `POST /api/conversations/{id}/messages` with `{ "text": "..." }` sends a reply: 400 for empty or over-4096-character text, 404 for an unknown conversation, 502 when Telegram rejects it (nothing is persisted).
 
 For a **local-only** backend verification without bot or ngrok credentials:
 
@@ -50,7 +50,7 @@ Stopping the stack does not delete Telegram's webhook or discard Telegram's back
 ## Architecture
 
 - [ADR 001 — PostgreSQL](docs/adr/ADR-001-database.md)
-- [ADR 002 — SignalR](docs/adr/ADR-002-realtime.md) (future)
+- [ADR 002 — SignalR](docs/adr/ADR-002-realtime.md)
 - [ADR 003 — Telegram webhook and RabbitMQ](docs/adr/ADR-003-webhook-rabbitmq.md)
 - [C4 context diagram](docs/architecture/c4-context.svg)
 - [C4 container diagram](docs/architecture/c4-containers.svg)

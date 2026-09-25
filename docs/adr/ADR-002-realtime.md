@@ -1,6 +1,6 @@
 # ADR-002: SignalR for browser updates
 
-**Status:** Accepted for the target architecture; integration not implemented in this foundation PR.
+**Status:** Accepted and implemented.
 
 ## Context
 
@@ -18,4 +18,4 @@ Polling is simpler but adds repeated requests and update delay. Raw WebSockets o
 
 - **Positive:** Lower-latency browser updates with a .NET-supported client/server model.
 - **Negative:** Connection lifecycle, reconnection, group membership, and eventual authorization of subscriptions must be designed and tested; notifications are not durable delivery.
-- **Current boundary:** This PR starts the Angular and API containers only. It has no hub, SignalR client, authentication, or working realtime updates.
+- **Implementation:** Hub `/hubs/inbox` broadcasts `messageStored` with the conversation ID after a newly committed inbound message and after a persisted reply; notification failures are logged and never block persistence or acknowledgement. The Angular client uses `withAutomaticReconnect()` and refetches the list and open thread. Subscriptions are not authenticated or targeted yet.

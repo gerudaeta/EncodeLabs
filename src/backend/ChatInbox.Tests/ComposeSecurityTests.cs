@@ -22,6 +22,18 @@ public sealed class ComposeSecurityTests
     }
 
     [Fact]
+    public void WebPublishesOnlyLoopbackPortAndDependsOnApi()
+    {
+        var web = Service("web");
+        var ports = Regex.Matches(web, "(?m)^      - \"([^\"]+)\"$")
+            .Cast<Match>()
+            .Select(match => match.Groups[1].Value);
+        Assert.Equal(new[] { "127.0.0.1:4200:80" }, ports);
+        Assert.Contains("depends_on:", web);
+        Assert.Contains("- api", web);
+    }
+
+    [Fact]
     public void AgentApiIsPrivateAndPolicyFileIsMounted()
     {
         var compose = File.ReadAllText(Path.Combine(FindRoot(), "docker-compose.yml"));

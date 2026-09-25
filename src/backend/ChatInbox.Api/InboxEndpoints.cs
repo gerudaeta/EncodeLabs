@@ -1,9 +1,42 @@
+using ChatInbox.Application.Outbound;
 using ChatInbox.Application.Queries;
 
 namespace ChatInbox.Api;
 
+public sealed record ReplyRequest(string? Text);
+
 public static class InboxEndpoints
 {
+    private const int MaxReplyTextScalars = 4096;
+
+    public static void MapInboxReplies(this WebApplication app)
+    {
+        app.MapPost("/api/conversations/{id:guid}/messages", async (Guid id, ReplyRequest request,
+            SendReplyUseCase useCase, CancellationToken cancellationToken) =>
+        {
+            var text = request.Text?.Trim();
+            if (string.IsNullOrEmpty(text) || text.EnumerateRunes().Count() > MaxReplyTextScalars)
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["text"] = ["Text must be non-empty and at most 4096 characters."]
+                });
+
+            try
+            {
+                var message = await useCase.SendAsync(id, text, cancellationToken);
+                return Results.Json(message, statusCode: StatusCodes.Status201Created);
+            }
+            catch (ConversationNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (TelegramSendFailedException)
+            {
+                return Results.StatusCode(StatusCodes.Status502BadGateway);
+            }
+        });
+    }
+
     public static void MapInboxQueries(this WebApplication app)
     {
         app.MapGet("/api/conversations", async (string? limit, string? before,

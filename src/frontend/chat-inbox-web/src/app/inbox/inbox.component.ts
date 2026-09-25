@@ -9,90 +9,128 @@ import { InboxService } from './inbox.service';
   selector: 'app-inbox',
   imports: [DatePipe, FormsModule],
   template: `
-    <main class="inbox">
-      <section class="conversations">
-        <h1>Conversations</h1>
-        @if (conversationsLoading() && conversations().length === 0) {
-          <p>Loading conversations…</p>
-        } @else if (conversationsError()) {
-          <p class="error">{{ conversationsError() }}</p>
-        } @else if (conversations().length === 0) {
-          <p>No conversations yet.</p>
-        }
-        <ul>
-          @for (conversation of conversations(); track conversation.id) {
-            <li>
-              <button type="button" [attr.data-testid]="'conversation-' + conversation.id"
-                [class.selected]="conversation.id === selectedId()"
-                (click)="selectConversation(conversation.id)">
-                <strong>{{ conversation.displayName ?? conversation.telegramChatId }}</strong>
-                <span class="preview">{{ conversation.lastMessagePreview }}</span>
-              </button>
-            </li>
+    <main class="flex h-screen bg-slate-100 text-sm text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
+      <aside class="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <header class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+          <h1 class="text-lg font-semibold tracking-tight">Conversations</h1>
+          <span class="min-w-6 rounded-full bg-indigo-50 px-2 py-0.5 text-center text-xs font-semibold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+            {{ conversations().length }}
+          </span>
+        </header>
+        <div class="flex-1 overflow-y-auto p-2">
+          @if (conversationsLoading() && conversations().length === 0) {
+            <p class="m-4 text-center text-slate-500">Loading conversations…</p>
+          } @else if (conversationsError()) {
+            <p class="m-4 text-center text-rose-600">{{ conversationsError() }}</p>
+          } @else if (conversations().length === 0) {
+            <p class="m-4 text-center text-slate-500">No conversations yet.</p>
           }
-        </ul>
-        @if (conversationsCursor()) {
-          <button type="button" data-testid="load-more-conversations" (click)="loadMoreConversations()"
-            [disabled]="conversationsLoading()">
-            Load more
-          </button>
-        }
-      </section>
-
-      <section class="thread">
-        @if (!selectedId()) {
-          <p>Select a conversation to see its messages.</p>
-        } @else {
-          @if (messagesCursor()) {
-            <button type="button" data-testid="load-more-messages" (click)="loadMoreMessages()"
-              [disabled]="messagesLoading()">
-              Load older messages
-            </button>
-          }
-          @if (messagesLoading() && messages().length === 0) {
-            <p>Loading messages…</p>
-          } @else if (messagesError()) {
-            <p class="error">{{ messagesError() }}</p>
-          } @else if (messages().length === 0) {
-            <p>No messages yet.</p>
-          }
-          <ul class="messages">
-            @for (message of messages(); track message.id) {
-              <li [attr.data-testid]="'message-' + message.id" [class]="message.direction">
-                <span class="text">{{ message.text }}</span>
-                <span class="time">{{ message.sentAt | date: 'short' }}</span>
+          <ul>
+            @for (conversation of conversations(); track conversation.id) {
+              <li>
+                <button type="button" [attr.data-testid]="'conversation-' + conversation.id"
+                  class="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-indigo-500 dark:hover:bg-slate-800"
+                  [class.!bg-indigo-50]="conversation.id === selectedId()"
+                  [class.dark:!bg-indigo-500/15]="conversation.id === selectedId()"
+                  (click)="selectConversation(conversation.id)">
+                  <span class="grid size-10 shrink-0 place-items-center rounded-full bg-linear-135 from-indigo-400 to-violet-500 font-semibold text-white">
+                    {{ initials(conversation) }}
+                  </span>
+                  <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="flex items-baseline justify-between gap-2">
+                      <strong class="truncate font-semibold">{{ conversation.displayName ?? conversation.telegramChatId }}</strong>
+                      @if (conversation.lastMessageAt) {
+                        <time class="shrink-0 text-xs text-slate-400">{{ conversation.lastMessageAt | date: 'shortTime' }}</time>
+                      }
+                    </span>
+                    <span class="truncate text-slate-500 dark:text-slate-400">{{ conversation.lastMessagePreview }}</span>
+                  </span>
+                </button>
               </li>
             }
           </ul>
-
-          <form class="composer" (submit)="$event.preventDefault(); sendReply()">
-            <textarea [ngModel]="replyText()" (ngModelChange)="replyText.set($event)" name="replyText"
-              [disabled]="sending()" maxlength="4096" placeholder="Type a reply…"></textarea>
-            @if (sendError()) {
-              <p class="error">{{ sendError() }}</p>
-            }
-            <button type="submit" data-testid="send-reply" [disabled]="sending() || !replyText().trim()">
-              {{ sending() ? 'Sending…' : 'Send' }}
+          @if (conversationsCursor()) {
+            <button type="button" data-testid="load-more-conversations" (click)="loadMoreConversations()"
+              class="mt-2 w-full cursor-pointer rounded-lg border border-dashed border-slate-300 py-2 text-slate-500 hover:border-indigo-500 hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700"
+              [disabled]="conversationsLoading()">
+              Load more
             </button>
+          }
+        </div>
+      </aside>
+
+      <section class="flex min-w-0 flex-1 flex-col">
+        @if (!selectedId()) {
+          <div class="grid flex-1 place-content-center justify-items-center gap-1 text-slate-500">
+            <span class="text-4xl" aria-hidden="true">💬</span>
+            <p>Select a conversation to see its messages.</p>
+          </div>
+        } @else {
+          <header class="flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-800 dark:bg-slate-900">
+            @if (selectedConversation(); as conversation) {
+              <span class="grid size-9 shrink-0 place-items-center rounded-full bg-linear-135 from-indigo-400 to-violet-500 text-sm font-semibold text-white">
+                {{ initials(conversation) }}
+              </span>
+              <span class="flex flex-col">
+                <strong class="font-semibold">{{ conversation.displayName ?? conversation.telegramChatId }}</strong>
+                <span class="text-xs text-slate-500 dark:text-slate-400">Telegram · {{ conversation.telegramChatId }}</span>
+              </span>
+            }
+          </header>
+
+          <!-- flex-col-reverse keeps the view pinned to the newest message without JS -->
+          <div class="flex flex-1 flex-col-reverse overflow-y-auto">
+            <div class="flex flex-col p-6">
+              @if (messagesCursor()) {
+                <button type="button" data-testid="load-more-messages" (click)="loadMoreMessages()"
+                  class="mb-4 cursor-pointer self-center rounded-full border border-dashed border-slate-300 px-4 py-1.5 text-slate-500 hover:border-indigo-500 hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700"
+                  [disabled]="messagesLoading()">
+                  Load older messages
+                </button>
+              }
+              @if (messagesLoading() && messages().length === 0) {
+                <p class="m-4 text-center text-slate-500">Loading messages…</p>
+              } @else if (messagesError()) {
+                <p class="m-4 text-center text-rose-600">{{ messagesError() }}</p>
+              } @else if (messages().length === 0) {
+                <p class="m-4 text-center text-slate-500">No messages yet.</p>
+              }
+              <ul class="flex flex-col gap-1.5">
+                @for (message of messages(); track message.id) {
+                  <li [attr.data-testid]="'message-' + message.id" [class]="message.direction"
+                    class="flex max-w-[min(70%,560px)] flex-col rounded-2xl px-3.5 py-2 whitespace-pre-wrap wrap-anywhere shadow-xs
+                      [&.inbound]:self-start [&.inbound]:rounded-bl-md [&.inbound]:border [&.inbound]:border-slate-200 [&.inbound]:bg-white
+                      dark:[&.inbound]:border-slate-800 dark:[&.inbound]:bg-slate-900
+                      [&.outbound]:self-end [&.outbound]:rounded-br-md [&.outbound]:bg-indigo-600 [&.outbound]:text-white">
+                    <span>{{ message.text }}</span>
+                    <time class="mt-0.5 self-end text-[0.68rem] opacity-65">{{ message.sentAt | date: 'short' }}</time>
+                  </li>
+                }
+              </ul>
+            </div>
+          </div>
+
+          <form class="px-6 pt-3 pb-5" (submit)="$event.preventDefault(); sendReply()">
+            @if (sendError()) {
+              <p class="mb-2 text-rose-600">{{ sendError() }}</p>
+            }
+            <div class="flex items-end gap-2 rounded-3xl border border-slate-200 bg-white py-1.5 pr-1.5 pl-4 transition focus-within:border-indigo-500 focus-within:ring-3 focus-within:ring-indigo-500/15 dark:border-slate-800 dark:bg-slate-900">
+              <textarea [ngModel]="replyText()" (ngModelChange)="replyText.set($event)" name="replyText"
+                class="max-h-32 flex-1 resize-none bg-transparent py-2 outline-none field-sizing-content placeholder:text-slate-400"
+                [disabled]="sending()" maxlength="4096" rows="1" placeholder="Type a reply…"
+                (keydown.enter)="onEnter($event)"></textarea>
+              <button type="submit" data-testid="send-reply"
+                class="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-indigo-600 text-white transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-default disabled:opacity-40 disabled:hover:scale-100"
+                [disabled]="sending() || !replyText().trim()" [attr.aria-label]="sending() ? 'Sending…' : 'Send'">
+                <svg viewBox="0 0 24 24" class="size-5" aria-hidden="true">
+                  <path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z" />
+                </svg>
+              </button>
+            </div>
           </form>
         }
       </section>
     </main>
-  `,
-  styles: `
-    .inbox { display: flex; gap: 1rem; height: 100vh; box-sizing: border-box; padding: 1rem; }
-    .conversations { flex: 1; max-width: 320px; overflow-y: auto; }
-    .thread { flex: 2; display: flex; flex-direction: column; overflow-y: auto; }
-    .conversations ul, .messages { list-style: none; margin: 0; padding: 0; }
-    .conversations button { display: block; width: 100%; text-align: left; padding: 0.5rem;
-      background: none; border: 1px solid #ddd; margin-bottom: 0.25rem; cursor: pointer; }
-    .conversations button.selected { background: #eef; }
-    .preview { display: block; color: #666; font-size: 0.85rem; }
-    .messages li { margin: 0.25rem 0; padding: 0.5rem; border-radius: 0.5rem; max-width: 70%; }
-    .messages li.inbound { background: #f0f0f0; align-self: flex-start; }
-    .messages li.outbound { background: #dbeafe; align-self: flex-end; margin-left: auto; }
-    .composer { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
-    .error { color: #b00020; }
   `,
 })
 export class InboxComponent implements OnInit {
@@ -186,6 +224,18 @@ export class InboxComponent implements OnInit {
         this.sending.set(false);
       },
     });
+  }
+
+  initials(conversation: Conversation): string {
+    const name = conversation.displayName?.trim();
+    if (!name) return '#';
+    return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+  }
+
+  onEnter(event: Event): void {
+    if ((event as KeyboardEvent).shiftKey) return;
+    event.preventDefault();
+    this.sendReply();
   }
 
   private loadConversations(): void {

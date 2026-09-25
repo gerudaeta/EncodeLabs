@@ -128,6 +128,34 @@ public sealed class InboxQueryTests(PostgresFixture postgres, BrokerFixture brok
     }
 
     [Fact]
+    public async Task UnreadCountCountsOnlyUnreadInboundMessages()
+    {
+        var chat = Random.Shared.NextInt64(1, long.MaxValue);
+        await SeedAsync(chat, 1, _at, "first");
+        await SeedAsync(chat, 2, _at.AddSeconds(1), "second");
+        var conversation = await ConversationIdAsync(chat);
+        await using (var db = OpenDb())
+        {
+            db.Messages.Add(new Message { Id = Guid.NewGuid(), ConversationId = conversation,
+                TelegramMessageId = 99, Text = "reply", SentAt = _at.AddSeconds(2), Direction = "outbound" });
+            await db.SaveChangesAsync();
+        }
+
+        using var beforeRead = await GetPageAsync("/api/conversations?limit=100");
+        var beforeItem = beforeRead.RootElement.GetProperty("items").EnumerateArray()
+            .Single(x => x.GetProperty("id").GetGuid() == conversation);
+        Assert.Equal(2, beforeItem.GetProperty("unreadCount").GetInt32());
+
+        using var markRead = await _client.PostAsync($"/api/conversations/{conversation}/read", null);
+        Assert.Equal(HttpStatusCode.NoContent, markRead.StatusCode);
+
+        using var afterRead = await GetPageAsync("/api/conversations?limit=100");
+        var afterItem = afterRead.RootElement.GetProperty("items").EnumerateArray()
+            .Single(x => x.GetProperty("id").GetGuid() == conversation);
+        Assert.Equal(0, afterItem.GetProperty("unreadCount").GetInt32());
+    }
+
+    [Fact]
     public async Task LimitsAndCursorsAreValidatedAndUnknownConversationIsNotFound()
     {
         foreach (var path in new[]

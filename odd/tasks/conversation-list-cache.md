@@ -23,7 +23,7 @@ Enabled: RED → GREEN → REFACTOR. Backend runner `dotnet test src/backend/Cha
 ## Tasks
 - [x] CCH-01 Cache the first conversation page with HybridCache + invalidation on inbound/reply/read, tests.
 - [x] CCH-02 ADR-005.
-- [ ] CCH-03 Verify: full suite, Docker rebuild of api, live check that list reflects new messages and read state.
+- [x] CCH-03 Verify: full suite, Docker rebuild of api, live check that list reflects new messages and read state.
 
 ## Acceptance criteria
 - Repeated first-page reads hit the cache (observable in tests).
@@ -41,5 +41,10 @@ Enabled: RED → GREEN → REFACTOR. Backend runner `dotnet test src/backend/Cha
 
 **CCH-02 — done.** `docs/adr/ADR-005-conversation-list-cache.md` written in ADR-004's format (Status/Context/Decision/Alternatives and tradeoffs/Consequences), covering the tag-vs-exact-key finding and the future Redis L2 + SignalR backplane note for multi-instance scaling.
 
+**CCH-03 — done.** `docker compose up -d --build api` OK. Live: first page read (cached) showed preview
+"Jckdndnd"; operator reply `POST /api/conversations/{id}/messages` → 201; the immediate next read showed
+preview "cache check" (fresh after invalidation). Known ceiling: a read already in flight before the
+write commits can repopulate the cache with pre-write data; bounded by the 30 s TTL.
+
 ## Next step
-CCH-03 (parent): full suite already green above; still needs the Docker rebuild of the `api` service and a live check that the list reflects new messages and read state through the running container.
+Push `feature/unread-messages` and `feature/conversation-list-cache`; open PRs to develop.

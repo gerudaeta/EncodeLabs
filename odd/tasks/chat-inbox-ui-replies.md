@@ -30,7 +30,7 @@ The inbound flow persists Telegram messages, but nothing is visible to the opera
 - [x] **UI-01 — Inbox UI:** Conversation list with pagination cursor, message thread per conversation, loading/empty/error states; nginx and dev proxy; web bound to loopback. Component/service tests.
 - [x] **UI-02 — Outgoing replies:** Application use case + Telegram `sendMessage` adapter; POST endpoint with validation (non-empty, max 4096 chars, unknown conversation → 404, Telegram failure → 502 and nothing persisted); updates conversation preview/last activity; composer in the thread. Backend tests with fake Telegram + real PostgreSQL; frontend tests.
 - [x] **UI-03 — Realtime:** SignalR hub, notifications from the consumer after commit and from the reply use case; Angular client with automatic reconnect that refetches list/thread on notification. Backend hub test; frontend tests with a fake connection.
-- [ ] **UI-04 — Close:** README and ADR-002 status update, full backend + frontend suites, Compose config check, live smoke with the running stack.
+- [x] **UI-04 — Close:** README and ADR-002 status update, full backend + frontend suites, Compose config check, live smoke with the running stack.
 
 ## Acceptance criteria
 
@@ -83,6 +83,8 @@ The inbound flow persists Telegram messages, but nothing is visible to the opera
   → 4 files / 17 tests; `npm run build` → succeeded; Compose config check with dummy env vars →
   exit 0.
 
+- 2026-09-25 UI-04 done. Parent reran frontend tests 17/17 and rebuilt the Compose stack: webhook re-registered (`ready: true`), UI, `/api` proxy and hub negotiate returned 200 on `127.0.0.1:4200`, LAN 4200 closed, public `/api` and `/hubs` returned ngrok 403. Live check: an operator reply from the UI arrived in Telegram and was persisted as outbound; a new Telegram message appeared in the open inbox without refresh (user-observed, persisted inbound confirmed via API). README and ADR-002 updated. Backend 98/98 reported by the implementer, not rerun by the parent.
+
 ## Next step
 
-UI-04 (out of scope for this delegation; not started).
+Push `feature/chat-inbox-ui-replies` and open PR #3 against `feature/chat-inbox-inbound` (stacked on PR #2) after explicit remote-delivery authorization.

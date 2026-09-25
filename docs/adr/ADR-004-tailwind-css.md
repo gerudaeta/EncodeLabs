@@ -1,21 +1,23 @@
-# ADR-004: Tailwind CSS for the operator inbox UI
+# ADR-004: Tailwind CSS para la interfaz del inbox del operador
 
-**Status:** Accepted and implemented.
+**Estado:** Aceptado
 
-## Context
+## Contexto
 
-The first inbox UI shipped with minimal component-scoped CSS that was functional but visually bare. The operator UI needs a consistent visual language (spacing, color, typography, dark mode) that stays easy to evolve as more screens are added, without introducing a component library for a single-screen app.
+La primera interfaz del inbox se entregó con CSS mínimo por componente, funcional pero visualmente básico. La interfaz del operador necesita un lenguaje visual consistente (espaciado, color, tipografía, modo oscuro) que siga siendo fácil de evolucionar a medida que se agregan más pantallas, sin introducir una librería de componentes para una aplicación de una sola pantalla.
 
-## Decision
+## Alternativas consideradas
 
-Style the Angular client with Tailwind CSS v4, integrated through PostCSS (`@tailwindcss/postcss` in `.postcssrc.json`) as supported by the Angular build ([Angular + Tailwind](https://angular.dev/guide/tailwind); [Tailwind with Angular](https://tailwindcss.com/docs/installation/framework-guides/angular)). The global stylesheet only imports Tailwind; components use utility classes directly in their templates and carry no component-scoped CSS. Dark mode uses Tailwind's default `dark:` variant, which follows `prefers-color-scheme`.
+- **CSS de componentes escrito a mano.** No agrega dependencias, pero obliga a inventar y mantener a mano un sistema de tokens y las convenciones de responsividad y modo oscuro.
+- **Librería de componentes (Angular Material, PrimeNG).** Provee widgets ya construidos, pero trae overrides de estilos más pesados y una superficie mayor de la que necesita un inbox de chat.
+- **Tailwind CSS v4 (elegida).** Agrega una dependencia de build y listas de clases largas en los templates, a cambio de una escala de diseño compartida y sin hoja de estilos propia que mantener.
 
-## Alternatives and tradeoffs
+## Decisión
 
-Hand-written component CSS has no dependency but requires inventing and maintaining a token system and responsive/dark-mode conventions by hand. A component library (Angular Material, PrimeNG) provides ready-made widgets but brings heavier styling overrides and a larger surface than a chat inbox needs. Tailwind adds a build-time dependency and long class lists in templates, in exchange for a shared design scale and no custom stylesheet to maintain.
+Estilizar el cliente Angular con Tailwind CSS v4, integrado a través de PostCSS (`@tailwindcss/postcss` en `.postcssrc.json`), tal como lo soporta el build de Angular ([Angular + Tailwind](https://angular.dev/guide/tailwind); [Tailwind con Angular](https://tailwindcss.com/docs/installation/framework-guides/angular)). La hoja de estilos global solo importa Tailwind; los componentes usan clases utilitarias directamente en sus templates y no llevan CSS propio por componente. El modo oscuro usa la variante `dark:` por defecto de Tailwind, que sigue `prefers-color-scheme`.
 
-## Consequences
+## Consecuencias
 
-- **Positive:** Consistent spacing, color, and dark-mode behavior from one design scale; styles live next to the markup they affect; unused utilities are not emitted.
-- **Negative:** Templates become more verbose; contributors need Tailwind familiarity; direction-dependent message styling uses arbitrary variants (`[&.inbound]:…`) because the `inbound`/`outbound` class is bound from data.
-- **Implementation:** `tailwindcss`, `@tailwindcss/postcss`, and `postcss` are dev dependencies; `src/styles.css` contains `@import "tailwindcss"`. Existing `data-testid` hooks and state texts were preserved, so component tests are unchanged.
+- **Ganamos:** espaciado, color y comportamiento de modo oscuro consistentes desde una única escala de diseño; los estilos viven junto al markup que afectan; las utilidades no usadas no se emiten.
+- **Resignamos:** los templates se vuelven más verbosos; los contribuyentes necesitan familiaridad con Tailwind; el estilo de mensajes según dirección usa variantes arbitrarias (`[&.inbound]:…`) porque la clase `inbound`/`outbound` se asigna desde datos.
+- **Implementación:** `tailwindcss`, `@tailwindcss/postcss` y `postcss` son dependencias de desarrollo; `src/styles.css` contiene `@import "tailwindcss"`. Se preservaron los `data-testid` y los textos de estado existentes, por lo que las pruebas de componentes no cambiaron.

@@ -1,31 +1,26 @@
-# ADR-005: Conversation list cache
+# ADR-005: Cache de la lista de conversaciones
 
-**Status:** Accepted and implemented.
+**Estado:** Aceptado
 
-## Context
+## Contexto
 
-`GET /api/conversations` (no cursor) is the hottest read in the system: it loads on every operator session and is refetched by every open tab on every realtime `messageStored` event (inbound message, operator reply, or mark-read). Each refetch re-runs the conversation query plus the per-conversation unread-count aggregation. Stale data here is unacceptable — an operator must see accurate previews and unread counts — but a short-lived, correctly invalidated cache removes repeated load from the hot path without adding infrastructure.
+`GET /api/conversations` (sin cursor) es la lectura más caliente del sistema: se carga en cada sesión del operador y cada pestaña la vuelve a pedir ante cada evento realtime `messageStored` (mensaje entrante, respuesta o marcado como leído), repitiendo la consulta y la agregación de no leídos. Los datos desactualizados no son aceptables, pero una cache corta y bien invalidada elimina la carga repetida sin agregar infraestructura.
 
-## Decision
+## Alternativas consideradas
 
-Cache only the first (no-cursor) page of the conversation list, at its default size, using `HybridCache` (`Microsoft.Extensions.Caching.Hybrid`) registered with `AddHybridCache()` and no distributed L2 — in-memory only, matching the single-instance deployment. Cursor pages and non-default `limit` values always read the database directly.
+- **Sin cache.** Más simple; se descarta porque la consulta se repite en cada evento de cada pestaña sin beneficio medido.
+- **Redis como L2 distribuido.** Necesario para instancias múltiples con cache/invalidación compartida. Se descarta por ahora: agrega un servicio a Compose y nuevos modos de falla sin necesidad medida en un despliegue de instancia única; `HybridCache` ya aísla esto en configuración, así que agregarlo después no cambiaría código de aplicación.
+- **Output caching (`AddOutputCache`).** Más simple de conectar, pero su invalidación por tags es más gruesa para eliminar exactamente una página desde un decorador de notificador.
+- **`HybridCache` con clave exacta (elegida).** Cachea solo la primera página (sin cursor, tamaño por defecto), en memoria, sin L2 distribuido, acorde a la instancia única. Páginas con cursor o `limit` no default leen siempre la base de datos.
 
-Invalidation is event-driven: `CacheInvalidatingInboxNotifier` decorates the existing `IInboxNotifier` and removes the cached entry by its exact key *before* delegating to the real (SignalR) notifier. All three write paths that affect the list — inbound message stored, operator reply persisted, conversation marked read — already funnel through this single `IInboxNotifier` call, so one decorator invalidates all of them without touching the use cases. Because the eviction happens first, a client's realtime-triggered refetch can never observe stale data. Each caller already wraps the notifier call in a try/catch that logs and swallows failures, so a cache-eviction failure is covered by that existing "notifications never block persistence" policy — no new error handling was needed.
+## Decisión
 
-A 30-second absolute expiration is kept as a safety net in case an invalidation is ever missed, not as the primary freshness mechanism.
+Usar `HybridCache` (`Microsoft.Extensions.Caching.Hybrid`, `AddHybridCache()`) en memoria para la primera página, con invalidación por evento: `CacheInvalidatingInboxNotifier` decora el `IInboxNotifier` existente y elimina la entrada por clave exacta *antes* de delegar al notificador real (SignalR). Los tres caminos de escritura que afectan la lista — mensaje entrante, respuesta persistida, conversación leída — ya pasan por esa única llamada, así que un decorador los invalida a los tres sin tocar los casos de uso. Al evictar primero, el refetch de realtime nunca ve datos viejos. Cada llamador ya envuelve la notificación en un try/catch que absorbe fallas, cubriendo también una falla de evicción. Se mantiene una expiración absoluta de 30 segundos como red de seguridad, no como mecanismo principal.
 
-Cache eviction uses an exact key (`cache.RemoveAsync`), not `HybridCache`'s tag feature. Tag-based removal (`RemoveByTagAsync`) is timestamp-based ("ignore entries created before this point") and was verified during implementation to miss entries created in the same tick as the invalidation call (a real, reported HybridCache limitation — dotnet/aspnetcore#58857) — an integration test written against tags failed intermittently. Exact-key removal has no such race.
+La evicción usa clave exacta (`RemoveAsync`), no tags: `RemoveByTagAsync` es por timestamp y se verificó que no eliminaba entradas creadas en el mismo tick que la invalidación (limitación real de HybridCache, dotnet/aspnetcore#58857), causando una prueba intermitente. La clave exacta no tiene esa condición de carrera.
 
-## Alternatives and tradeoffs
+## Consecuencias
 
-**No cache.** Simplest option; rejected because the list query (plus its unread-count aggregation) reruns on every tab's every realtime event, for no measured benefit of skipping it.
-
-**Redis as a distributed L2 (`HybridCache` + `AddStackExchangeRedisCache`).** Needed for multiple API instances sharing one cache and for cross-instance invalidation. Rejected for now: it adds a Compose service, new failure modes (Redis outage, network partition), and a C4 diagram change, for a single-operator, single-instance deployment with no measured need. `HybridCache`'s API already isolates this decision to configuration — adding Redis later needs no application code change.
-
-**Output caching (`AddOutputCache` + `.CacheOutput()`).** Caches the whole HTTP response and is simpler to wire, but its tag-based eviction (`IOutputCacheStore.EvictByTagAsync`) is a coarser, less controllable mechanism for this specific need (evicting one exact logical page from inside a notifier decorator), and mixing it with the existing SignalR notification path would be less direct than a single `IInboxNotifier` decorator.
-
-## Consequences
-
-- **Positive:** the hot path (default first page) is served from memory between writes; invalidation is centralized in one decorator instead of duplicated across three use cases; no new infrastructure or configuration surface.
-- **Negative:** an operator hitting the API directly with a non-default `limit` on the first page always bypasses the cache (acceptable: the UI never does this).
-- **Scaling note:** if the API is ever run as multiple instances, each instance's in-memory cache and each browser tab's SignalR connection are local to that instance. At that point `HybridCache` would need Redis as its L2, and SignalR would need a backplane (e.g. Redis backplane) so a write on one instance invalidates and notifies clients connected to every other instance. Neither is needed for the current single-instance deployment.
+- **Ganamos:** el camino caliente se sirve desde memoria entre escrituras; invalidación centralizada en un decorador; sin infraestructura nueva.
+- **Resignamos:** un `limit` no default en la primera página evita la cache (aceptable: la interfaz nunca lo hace).
+- **Riesgo:** con múltiples instancias, cache y conexiones SignalR quedarían locales a cada una; haría falta Redis como L2 y un backplane de SignalR. Ninguna es necesaria hoy.

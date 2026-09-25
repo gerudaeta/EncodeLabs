@@ -1,21 +1,23 @@
-# ADR-002: SignalR for browser updates
+# ADR-002: SignalR para las actualizaciones del navegador
 
-**Status:** Accepted and implemented.
+**Estado:** Aceptado
 
-## Context
+## Contexto
 
-The operator's inbox should receive new-message and conversation updates without repeated manual refresh. The .NET API is the source of those updates; the Angular client needs a manageable connection lifecycle.
+El inbox del operador debe recibir actualizaciones de mensajes y conversaciones nuevas sin refrescos manuales repetidos. La API .NET es la fuente de esas actualizaciones; el cliente Angular necesita un ciclo de vida de conexión manejable.
 
-## Decision
+## Alternativas consideradas
 
-Use ASP.NET Core SignalR for API-to-browser notifications. Its hub model supports targeted delivery, while the JavaScript client offers configurable reconnection; reconnection is **not enabled by default** ([SignalR overview](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction?view=aspnetcore-10.0); [JavaScript client](https://learn.microsoft.com/en-us/aspnet/core/signalr/javascript-client?view=aspnetcore-10.0)). Persisted data remains authoritative; a notification prompts the client to reconcile state rather than replacing storage.
+- **Polling.** Es más simple, pero agrega solicitudes repetidas y demora en la actualización.
+- **WebSockets crudos.** Ofrecen control directo del transporte, pero requieren más protocolo, direccionamiento y código de reconexión propio.
+- **SignalR (elegida).** ASP.NET Core SignalR aporta un modelo de hub con entrega dirigida y un cliente JavaScript con reconexión configurable; la reconexión **no está habilitada por defecto** ([resumen de SignalR](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction?view=aspnetcore-10.0); [cliente JavaScript](https://learn.microsoft.com/en-us/aspnet/core/signalr/javascript-client?view=aspnetcore-10.0)). A cambio de esos mecanismos a medida, agrega un límite de conexión propio del framework.
 
-## Alternatives and tradeoffs
+## Decisión
 
-Polling is simpler but adds repeated requests and update delay. Raw WebSockets offer direct transport control but require more protocol, targeting, and reconnect code. SignalR adds a framework connection boundary instead of those custom mechanisms.
+Usar ASP.NET Core SignalR para las notificaciones de la API hacia el navegador. Los datos persistidos siguen siendo la fuente de verdad; una notificación indica al cliente que reconcilie su estado en lugar de reemplazar el almacenamiento.
 
-## Consequences
+## Consecuencias
 
-- **Positive:** Lower-latency browser updates with a .NET-supported client/server model.
-- **Negative:** Connection lifecycle, reconnection, group membership, and eventual authorization of subscriptions must be designed and tested; notifications are not durable delivery.
-- **Implementation:** Hub `/hubs/inbox` broadcasts `messageStored` with the conversation ID after a newly committed inbound message and after a persisted reply; notification failures are logged and never block persistence or acknowledgement. The Angular client uses `withAutomaticReconnect()` and refetches the list and open thread. Subscriptions are not authenticated or targeted yet.
+- **Ganamos:** actualizaciones de menor latencia en el navegador con un modelo de cliente/servidor soportado por .NET.
+- **Resignamos:** hay que diseñar y probar el ciclo de vida de la conexión, la reconexión, la pertenencia a grupos y, eventualmente, la autorización de las suscripciones; las notificaciones no son entrega durable.
+- **Implementación:** el hub `/hubs/inbox` difunde `messageStored` con el ID de conversación después de confirmar un mensaje entrante nuevo y después de persistir una respuesta. Los fallos de notificación se registran y nunca bloquean la persistencia ni el acuse de recibo. El cliente Angular usa `withAutomaticReconnect()` y vuelve a pedir la lista y el hilo abierto. Las suscripciones todavía no están autenticadas ni dirigidas.

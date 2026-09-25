@@ -11,6 +11,7 @@ A Telegram conversational inbox built for the EncodeLabs challenge. Telegram del
 - [ADR-005 — Conversation list cache](docs/adr/ADR-005-conversation-list-cache.md)
 - [C4 context diagram](docs/architecture/c4-context.svg)
 - [C4 container diagram](docs/architecture/c4-containers.svg)
+- [Working with AI](docs/ai-usage.md)
 
 ## Prerequisites
 

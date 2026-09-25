@@ -9,6 +9,7 @@ using ChatInbox.Infrastructure.Messaging;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Infrastructure.Telegram;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,7 +21,10 @@ builder.Services.AddSingleton<RegistrationStatus>();
 builder.Services.AddSingleton<IRegistrationStatus>(services =>
     services.GetRequiredService<RegistrationStatus>());
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<IInboxNotifier, SignalRInboxNotifier>();
+builder.Services.AddHybridCache(); // In-memory only: no distributed L2 registered.
+builder.Services.AddSingleton<SignalRInboxNotifier>();
+builder.Services.AddSingleton<IInboxNotifier>(services => new CacheInvalidatingInboxNotifier(
+    services.GetRequiredService<HybridCache>(), services.GetRequiredService<SignalRInboxNotifier>()));
 var postgresConnection = builder.Configuration.GetConnectionString("Postgres");
 if (!string.IsNullOrWhiteSpace(postgresConnection))
 {

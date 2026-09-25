@@ -1,4 +1,5 @@
 using ChatInbox.Application.Inbound;
+using ChatInbox.Domain;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 

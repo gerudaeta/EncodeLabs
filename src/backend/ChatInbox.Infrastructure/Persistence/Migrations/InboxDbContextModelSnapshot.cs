@@ -22,7 +22,7 @@ namespace ChatInbox.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("ChatInbox.Infrastructure.Persistence.Conversation", b =>
+            modelBuilder.Entity("ChatInbox.Domain.Conversation", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -63,7 +63,7 @@ namespace ChatInbox.Infrastructure.Persistence.Migrations
                     b.ToTable("conversations", (string)null);
                 });
 
-            modelBuilder.Entity("ChatInbox.Infrastructure.Persistence.Message", b =>
+            modelBuilder.Entity("ChatInbox.Domain.Message", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -137,9 +137,9 @@ namespace ChatInbox.Infrastructure.Persistence.Migrations
                     b.ToTable("processed_updates", (string)null);
                 });
 
-            modelBuilder.Entity("ChatInbox.Infrastructure.Persistence.Message", b =>
+            modelBuilder.Entity("ChatInbox.Domain.Message", b =>
                 {
-                    b.HasOne("ChatInbox.Infrastructure.Persistence.Conversation", null)
+                    b.HasOne("ChatInbox.Domain.Conversation", null)
                         .WithMany()
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)

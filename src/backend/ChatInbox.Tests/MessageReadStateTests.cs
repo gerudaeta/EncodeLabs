@@ -1,4 +1,4 @@
-using ChatInbox.Infrastructure.Persistence;
+using ChatInbox.Domain;
 using Xunit;
 
 namespace ChatInbox.Tests;
@@ -8,7 +8,7 @@ public sealed class MessageReadStateTests
     [Fact]
     public void MarkReadTransitionsAnUnreadInboundMessage()
     {
-        var message = new Message { Direction = "inbound" };
+        var message = new Message { Direction = MessageDirection.Inbound };
         var now = DateTimeOffset.Parse("2026-09-25T10:00:00Z");
 
         Assert.True(message.MarkRead(now));
@@ -20,7 +20,7 @@ public sealed class MessageReadStateTests
     public void MarkReadIsIdempotentOnceAlreadyRead()
     {
         var readAt = DateTimeOffset.Parse("2026-09-25T09:00:00Z");
-        var message = new Message { Direction = "inbound", ReadAt = readAt };
+        var message = new Message { Direction = MessageDirection.Inbound, ReadAt = readAt };
 
         Assert.False(message.MarkRead(DateTimeOffset.Parse("2026-09-25T10:00:00Z")));
 
@@ -30,7 +30,7 @@ public sealed class MessageReadStateTests
     [Fact]
     public void OutboundMessagesAreNeverMarkedRead()
     {
-        var message = new Message { Direction = "outbound" };
+        var message = new Message { Direction = MessageDirection.Outbound };
 
         Assert.False(message.MarkRead(DateTimeOffset.Parse("2026-09-25T10:00:00Z")));
 

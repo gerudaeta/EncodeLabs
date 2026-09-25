@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using ChatInbox.Application.Inbound;
+using ChatInbox.Domain;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Infrastructure.Telegram;
 using ChatInbox.Tests.Integration;
@@ -137,7 +138,8 @@ public sealed class InboxQueryTests(PostgresFixture postgres, BrokerFixture brok
         await using (var db = OpenDb())
         {
             db.Messages.Add(new Message { Id = Guid.NewGuid(), ConversationId = conversation,
-                TelegramMessageId = 99, Text = "reply", SentAt = _at.AddSeconds(2), Direction = "outbound" });
+                TelegramMessageId = 99, Text = "reply", SentAt = _at.AddSeconds(2),
+                Direction = MessageDirection.Outbound });
             await db.SaveChangesAsync();
         }
 

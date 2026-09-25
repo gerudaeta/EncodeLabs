@@ -1,4 +1,5 @@
 using ChatInbox.Application.Inbound;
+using ChatInbox.Domain;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Tests.Integration;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +28,7 @@ public sealed class InboxStoreTests(PostgresFixture postgres) : IClassFixture<Po
         var conversation = await db.Conversations.SingleAsync(x => x.TelegramChatId == update.ChatId);
         Assert.Equal(1, await db.Messages.CountAsync(x => x.ConversationId == conversation.Id &&
             x.TelegramMessageId == update.MessageId && x.TelegramUpdateId == update.UpdateId &&
-            x.Direction == "inbound" && x.Text == "hello"));
+            x.Direction == MessageDirection.Inbound && x.Text == "hello"));
         Assert.Equal(update.SentAt, conversation.LastMessageAt);
         Assert.Equal(update.MessageId, conversation.LastTelegramMessageId);
         Assert.Equal("hello", conversation.LastMessagePreview);

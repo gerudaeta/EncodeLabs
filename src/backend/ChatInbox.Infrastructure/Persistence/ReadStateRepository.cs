@@ -1,4 +1,5 @@
 using ChatInbox.Application.Read;
+using ChatInbox.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatInbox.Infrastructure.Persistence;
@@ -14,7 +15,7 @@ public sealed class ReadStateRepository(InboxDbContext db) : IReadStateRepositor
 
         var unread = await db.Messages
             .Where(m => m.ConversationId == conversationId &&
-                m.Direction == MessageDirections.Inbound && m.ReadAt == null)
+                m.Direction == MessageDirection.Inbound && m.ReadAt == null)
             .ToListAsync(cancellationToken);
         if (unread.Count == 0) return MarkReadOutcome.NoChange;
 

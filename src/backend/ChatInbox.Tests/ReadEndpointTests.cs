@@ -1,5 +1,6 @@
 using System.Net;
 using ChatInbox.Application.Inbound;
+using ChatInbox.Domain;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Tests.Integration;
 using Microsoft.AspNetCore.Hosting;
@@ -75,7 +76,7 @@ public sealed class ReadEndpointTests(PostgresFixture postgres, BrokerFixture br
             db.Messages.Add(new Message
             {
                 Id = Guid.NewGuid(), ConversationId = conversation, TelegramMessageId = 1,
-                Text = "reply", SentAt = _at, Direction = "outbound"
+                Text = "reply", SentAt = _at, Direction = MessageDirection.Outbound
             });
             await db.SaveChangesAsync();
         }

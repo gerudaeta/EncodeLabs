@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using ChatInbox.Application.Outbound;
+using ChatInbox.Domain;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Tests.Integration;
 using Microsoft.AspNetCore.Hosting;

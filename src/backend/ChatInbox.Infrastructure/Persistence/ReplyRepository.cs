@@ -1,5 +1,6 @@
 using ChatInbox.Application.Outbound;
 using ChatInbox.Application.Queries;
+using ChatInbox.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatInbox.Infrastructure.Persistence;
@@ -21,7 +22,7 @@ public sealed class ReplyRepository(InboxDbContext db) : IReplyRepository
             TelegramUpdateId = null,
             Text = text,
             SentAt = sent.SentAt,
-            Direction = "outbound"
+            Direction = MessageDirection.Outbound
         };
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -47,7 +48,7 @@ public sealed class ReplyRepository(InboxDbContext db) : IReplyRepository
         await transaction.CommitAsync(cancellationToken);
         db.ChangeTracker.Clear();
 
-        return new MessageDto(message.Id, message.TelegramMessageId, message.Direction, message.Text,
-            message.SentAt);
+        return new MessageDto(message.Id, message.TelegramMessageId, message.Direction.ToStorageValue(),
+            message.Text, message.SentAt);
     }
 }

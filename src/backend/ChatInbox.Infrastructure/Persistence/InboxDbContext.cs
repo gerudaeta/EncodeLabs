@@ -1,43 +1,8 @@
+using ChatInbox.Domain;
+using ChatInbox.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatInbox.Infrastructure.Persistence;
-
-public sealed class Conversation
-{
-    public Guid Id { get; set; }
-    public long TelegramChatId { get; set; }
-    public string? DisplayName { get; set; }
-    public DateTimeOffset? LastMessageAt { get; set; }
-    public long? LastTelegramMessageId { get; set; }
-    public string? LastMessagePreview { get; set; }
-}
-
-internal static class MessageDirections
-{
-    public const string Inbound = "inbound";
-    public const string Outbound = "outbound";
-}
-
-public sealed class Message
-{
-    public Guid Id { get; set; }
-    public Guid ConversationId { get; set; }
-    public long TelegramMessageId { get; set; }
-    public long? TelegramUpdateId { get; set; }
-    public string Text { get; set; } = "";
-    public DateTimeOffset SentAt { get; set; }
-    public string Direction { get; set; } = "inbound";
-    public DateTimeOffset? ReadAt { get; set; }
-
-    // Domain rule: only unread inbound messages can transition to read. Outbound messages are
-    // never unread, and marking an already-read message is a no-op (idempotent).
-    public bool MarkRead(DateTimeOffset at)
-    {
-        if (Direction != MessageDirections.Inbound || ReadAt is not null) return false;
-        ReadAt = at;
-        return true;
-    }
-}
 
 public sealed class ProcessedUpdate
 {
@@ -53,50 +18,8 @@ public sealed class InboxDbContext(DbContextOptions<InboxDbContext> options) : D
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Conversation>(b =>
-        {
-            b.ToTable("conversations");
-            b.HasKey(x => x.Id).HasName("pk_conversations");
-            b.Property(x => x.Id).HasColumnName("id");
-            b.Property(x => x.TelegramChatId).HasColumnName("telegram_chat_id");
-            b.Property(x => x.DisplayName).HasColumnName("display_name");
-            b.Property(x => x.LastMessageAt).HasColumnName("last_message_at");
-            b.Property(x => x.LastTelegramMessageId).HasColumnName("last_telegram_message_id");
-            b.Property(x => x.LastMessagePreview).HasColumnName("last_message_preview");
-            b.HasIndex(x => x.TelegramChatId).IsUnique().HasDatabaseName("ux_conversations_chat");
-            b.HasIndex(x => new { x.LastMessageAt, x.Id }).IsDescending()
-                .HasDatabaseName("ix_conversations_activity");
-        });
-
-        modelBuilder.Entity<Message>(b =>
-        {
-            b.ToTable("messages");
-            b.HasKey(x => x.Id).HasName("pk_messages");
-            b.Property(x => x.Id).HasColumnName("id");
-            b.Property(x => x.ConversationId).HasColumnName("conversation_id");
-            b.Property(x => x.TelegramMessageId).HasColumnName("telegram_message_id");
-            b.Property(x => x.TelegramUpdateId).HasColumnName("telegram_update_id");
-            b.Property(x => x.Text).HasColumnName("text").IsRequired();
-            b.Property(x => x.SentAt).HasColumnName("sent_at").IsRequired();
-            b.Property(x => x.Direction).HasColumnName("direction").IsRequired();
-            b.Property(x => x.ReadAt).HasColumnName("read_at");
-            b.HasOne<Conversation>().WithMany().HasForeignKey(x => x.ConversationId);
-            b.HasIndex(x => x.TelegramUpdateId).IsUnique().HasDatabaseName("ux_messages_update");
-            b.HasIndex(x => new { x.ConversationId, x.TelegramMessageId }).IsUnique()
-                .HasDatabaseName("ux_messages_chat_message");
-            b.HasIndex(x => new { x.ConversationId, x.SentAt, x.Id })
-                .HasDatabaseName("ix_messages_conversation_time");
-            // Speeds up per-conversation unread counts without scanning read/outbound rows.
-            b.HasIndex(x => x.ConversationId).HasDatabaseName("ix_messages_unread")
-                .HasFilter($"direction = '{MessageDirections.Inbound}' AND read_at IS NULL");
-        });
-
-        modelBuilder.Entity<ProcessedUpdate>(b =>
-        {
-            b.ToTable("processed_updates");
-            b.HasKey(x => x.UpdateId).HasName("pk_processed_updates");
-            b.Property(x => x.UpdateId).HasColumnName("update_id").ValueGeneratedNever();
-            b.Property(x => x.ProcessedAt).HasColumnName("processed_at").IsRequired();
-        });
+        modelBuilder.ApplyConfiguration(new ConversationConfiguration());
+        modelBuilder.ApplyConfiguration(new MessageConfiguration());
+        modelBuilder.ApplyConfiguration(new ProcessedUpdateConfiguration());
     }
 }

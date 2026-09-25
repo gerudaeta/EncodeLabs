@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using ChatInbox.Application.Inbound;
 using ChatInbox.Application.Outbound;
+using ChatInbox.Domain;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Tests.Integration;
 using Microsoft.AspNetCore.Hosting;
@@ -105,7 +106,7 @@ public sealed class ReplyEndpointTests(PostgresFixture postgres, BrokerFixture b
 
         await using var db = OpenDb();
         var message = await db.Messages.SingleAsync(m => m.ConversationId == conversation);
-        Assert.Equal("outbound", message.Direction);
+        Assert.Equal(MessageDirection.Outbound, message.Direction);
         Assert.Null(message.TelegramUpdateId);
         var row = await db.Conversations.SingleAsync(c => c.Id == conversation);
         Assert.Equal("a trimmed reply", row.LastMessagePreview);

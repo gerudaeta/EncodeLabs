@@ -1,0 +1,5 @@
+on_http_request:
+  - expressions:
+      - "req.method != 'POST' || req.url.path != '/webhooks/telegram'"
+    actions:
+      - type: deny

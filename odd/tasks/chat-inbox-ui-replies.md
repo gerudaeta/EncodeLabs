@@ -28,7 +28,7 @@ The inbound flow persists Telegram messages, but nothing is visible to the opera
 ## Tasks
 
 - [x] **UI-01 — Inbox UI:** Conversation list with pagination cursor, message thread per conversation, loading/empty/error states; nginx and dev proxy; web bound to loopback. Component/service tests.
-- [ ] **UI-02 — Outgoing replies:** Application use case + Telegram `sendMessage` adapter; POST endpoint with validation (non-empty, max 4096 chars, unknown conversation → 404, Telegram failure → 502 and nothing persisted); updates conversation preview/last activity; composer in the thread. Backend tests with fake Telegram + real PostgreSQL; frontend tests.
+- [x] **UI-02 — Outgoing replies:** Application use case + Telegram `sendMessage` adapter; POST endpoint with validation (non-empty, max 4096 chars, unknown conversation → 404, Telegram failure → 502 and nothing persisted); updates conversation preview/last activity; composer in the thread. Backend tests with fake Telegram + real PostgreSQL; frontend tests.
 - [ ] **UI-03 — Realtime:** SignalR hub, notifications from the consumer after commit and from the reply use case; Angular client with automatic reconnect that refetches list/thread on notification. Backend hub test; frontend tests with a fake connection.
 - [ ] **UI-04 — Close:** README and ADR-002 status update, full backend + frontend suites, Compose config check, live smoke with the running stack.
 
@@ -53,6 +53,20 @@ The inbound flow persists Telegram messages, but nothing is visible to the opera
   glue/config, not RED-first). Verification: `npm test -- --watch=false` → 4 files / 17 tests passed;
   `npm run build` → succeeded; `dotnet test --filter ComposeSecurityTests` → 6 passed.
 
+- 2026-09-25 UI-02 done. Added `SendReplyUseCase` (Application) calling `IReplySender` (Telegram
+  `sendMessage`, implemented by `TelegramReplySender`) before `IReplyRepository` (implemented by
+  `ReplyRepository`) persists the outbound message and advances the conversation summary using the
+  same race-safe CASE update as inbound storage; migration `AllowNullOutboundUpdateId` makes
+  `messages.telegram_update_id` nullable since replies have no Telegram update id. Endpoint
+  `POST /api/conversations/{id}/messages` validates (trim, non-empty, <=4096 scalars → 400
+  ProblemDetails), maps `ConversationNotFoundException` → 404 and `TelegramSendFailedException` →
+  502. `IInboxNotifier` introduced now (Application abstraction) with a temporary `NoopInboxNotifier`
+  until UI-03 wires the real SignalR-backed one. Composer UI/tests were already added with UI-01.
+  RED observed for `SendReplyUseCaseTests` (4 real `NotImplementedException`/exception-type failures
+  against a stub use case) before implementing; GREEN after. `ReplyEndpointTests` (Postgres +
+  fake `IReplySender`) written and passing directly against the finished endpoint (integration
+  wiring, not RED-first). Verification: `dotnet test` → 95 passed (full suite, no regressions).
+
 ## Next step
 
-UI-02.
+UI-03.

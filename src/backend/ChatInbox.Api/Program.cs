@@ -1,6 +1,9 @@
 using ChatInbox.Api;
+using ChatInbox.Api.Realtime;
 using ChatInbox.Application.Inbound;
+using ChatInbox.Application.Outbound;
 using ChatInbox.Application.Queries;
+using ChatInbox.Application.Realtime;
 using ChatInbox.Infrastructure.Messaging;
 using ChatInbox.Infrastructure.Persistence;
 using ChatInbox.Infrastructure.Telegram;
@@ -15,12 +18,20 @@ builder.Services.AddSingleton(new TelegramOptions(
 builder.Services.AddSingleton<RegistrationStatus>();
 builder.Services.AddSingleton<IRegistrationStatus>(services =>
     services.GetRequiredService<RegistrationStatus>());
+builder.Services.AddSingleton<IInboxNotifier, NoopInboxNotifier>();
 var postgresConnection = builder.Configuration.GetConnectionString("Postgres");
 if (!string.IsNullOrWhiteSpace(postgresConnection))
 {
     builder.Services.AddDbContext<InboxDbContext>(options => options.UseNpgsql(postgresConnection));
     builder.Services.AddScoped<IInboundStore, InboxRepository>();
     builder.Services.AddScoped<IInboxQueries, InboxQueries>();
+    builder.Services.AddScoped<IReplyRepository, ReplyRepository>();
+    builder.Services.AddHttpClient<IReplySender, TelegramReplySender>(client =>
+    {
+        client.BaseAddress = new Uri("https://api.telegram.org/");
+        client.Timeout = TimeSpan.FromSeconds(10);
+    }).RemoveAllLoggers(); // The bot token is part of the request path.
+    builder.Services.AddScoped<SendReplyUseCase>();
 }
 var amqpUri = builder.Configuration["RabbitMQ:Uri"];
 IConnection? consumerConnection = null;
@@ -80,7 +91,10 @@ try
     app.MapTelegramWebhook();
     app.MapReadiness();
     if (!string.IsNullOrWhiteSpace(postgresConnection))
+    {
         app.MapInboxQueries();
+        app.MapInboxReplies();
+    }
 
     app.Run();
 }

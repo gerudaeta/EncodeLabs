@@ -1,11 +1,29 @@
 using ChatInbox.Application.Queries;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
 
 namespace ChatInbox.Infrastructure.Persistence;
 
-public sealed class InboxQueries(InboxDbContext db) : IInboxQueries
+public sealed class InboxQueries(InboxDbContext db, HybridCache cache) : IInboxQueries
 {
     public async Task<Page<ConversationDto>> ListConversationsAsync(int limit, PageCursor? before,
+        CancellationToken cancellationToken)
+    {
+        // Only the default-sized first page is cached (see ConversationListCache remarks);
+        // cursor pages and non-default limits always read the database directly.
+        if (before is not null || limit != ConversationListCache.CachedLimit)
+            return await LoadConversationsPageAsync(limit, before, cancellationToken);
+
+        return await cache.GetOrCreateAsync(
+            ConversationListCache.Key,
+            this,
+            static async (queries, ct) =>
+                await queries.LoadConversationsPageAsync(ConversationListCache.CachedLimit, null, ct),
+            ConversationListCache.EntryOptions,
+            cancellationToken: cancellationToken);
+    }
+
+    private async Task<Page<ConversationDto>> LoadConversationsPageAsync(int limit, PageCursor? before,
         CancellationToken cancellationToken)
     {
         // Keep the active path sargable against ix_conversations_activity. Empty

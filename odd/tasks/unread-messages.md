@@ -60,6 +60,10 @@ Backend runner `dotnet test src/backend/ChatInbox.slnx`; frontend runner `npm te
   request; added badge and mark-read assertions.
   `npm test -- --watch=false`: 19 passed, 0 failed (4 files). `npx ng build`: succeeded.
 
+- UNR-04 (parent): spot check `ng test` 19 passed; `docker compose up -d --build api web` OK; migration
+  applied on startup; live API: `GET /api/conversations` → `unreadCount: 4`, `POST .../read` → 204,
+  repeat → 204 (idempotent), unknown id → 404, then `unreadCount: 0`. Pending: operator check of the
+  badge incrementing on a new Telegram message.
+
 ## Next step
-UNR-04: full backend + frontend suites (already green above), frontend build (already green above),
-Docker rebuild and manual check — owned by the parent orchestrator.
+UNR-04: user sends a Telegram message and confirms the badge increments live and clears on open.

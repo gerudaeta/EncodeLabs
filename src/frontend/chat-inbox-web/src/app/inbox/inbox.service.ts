@@ -19,6 +19,10 @@ export class InboxService {
   sendMessage(conversationId: string, text: string): Observable<Message> {
     return this.http.post<Message>(`/api/conversations/${conversationId}/messages`, { text });
   }
+
+  markRead(conversationId: string): Observable<void> {
+    return this.http.post<void>(`/api/conversations/${conversationId}/read`, {});
+  }
 }
 
 function cursorParams(before?: string): HttpParams {

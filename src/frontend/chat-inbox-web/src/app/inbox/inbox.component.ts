@@ -39,9 +39,17 @@ import { InboxService } from './inbox.service';
                   <span class="flex min-w-0 flex-1 flex-col">
                     <span class="flex items-baseline justify-between gap-2">
                       <strong class="truncate font-semibold">{{ conversation.displayName ?? conversation.telegramChatId }}</strong>
-                      @if (conversation.lastMessageAt) {
-                        <time class="shrink-0 text-xs text-slate-400">{{ conversation.lastMessageAt | date: 'shortTime' }}</time>
-                      }
+                      <span class="flex shrink-0 items-center gap-1.5">
+                        @if (conversation.unreadCount > 0) {
+                          <span [attr.data-testid]="'unread-badge-' + conversation.id"
+                            class="min-w-5 rounded-full bg-indigo-600 px-1.5 py-0.5 text-center text-[0.65rem] font-semibold text-white">
+                            {{ conversation.unreadCount }}
+                          </span>
+                        }
+                        @if (conversation.lastMessageAt) {
+                          <time class="text-xs text-slate-400">{{ conversation.lastMessageAt | date: 'shortTime' }}</time>
+                        }
+                      </span>
                     </span>
                     <span class="truncate text-slate-500 dark:text-slate-400">{{ conversation.lastMessagePreview }}</span>
                   </span>
@@ -186,6 +194,7 @@ export class InboxComponent implements OnInit {
     this.sendError.set(null);
     this.replyText.set('');
     this.loadMessages(id);
+    this.markRead(id);
   }
 
   loadMoreMessages(): void {
@@ -243,7 +252,11 @@ export class InboxComponent implements OnInit {
     this.conversationsError.set(null);
     this.inboxService.listConversations().subscribe({
       next: (page) => {
-        this.conversations.set(page.items);
+        // The currently open conversation is always shown as read, even if this response
+        // raced a still-in-flight mark-read call.
+        const selectedId = this.selectedId();
+        this.conversations.set(page.items.map((c) =>
+          (c.id === selectedId ? { ...c, unreadCount: 0 } : c)));
         this.conversationsCursor.set(page.nextCursor);
         this.conversationsLoading.set(false);
       },
@@ -272,6 +285,15 @@ export class InboxComponent implements OnInit {
 
   private onMessageStored(conversationId: string): void {
     this.loadConversations();
-    if (this.selectedId() === conversationId) this.loadMessages(conversationId);
+    if (this.selectedId() === conversationId) {
+      this.loadMessages(conversationId);
+      this.markRead(conversationId);
+    }
+  }
+
+  private markRead(id: string): void {
+    this.conversations.set(this.conversations()
+      .map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)));
+    this.inboxService.markRead(id).subscribe({ error: () => {} });
   }
 }

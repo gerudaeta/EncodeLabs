@@ -32,8 +32,16 @@ public sealed class InboxQueries(InboxDbContext db) : IInboxQueries
         var next = rows.Count > limit
             ? PageCursor.Encode(selected[^1].LastMessageAt ?? DateTimeOffset.MinValue,
                 selected[^1].Id) : null;
+        var ids = selected.Select(c => c.Id).ToArray();
+        var unreadCounts = await db.Messages.AsNoTracking()
+            .Where(m => ids.Contains(m.ConversationId) &&
+                m.Direction == MessageDirections.Inbound && m.ReadAt == null)
+            .GroupBy(m => m.ConversationId)
+            .Select(g => new { ConversationId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ConversationId, x => x.Count, cancellationToken);
         return new Page<ConversationDto>(selected.Select(c => new ConversationDto(c.Id,
-            c.TelegramChatId, c.DisplayName, c.LastMessageAt, c.LastMessagePreview)).ToArray(), next);
+            c.TelegramChatId, c.DisplayName, c.LastMessageAt, c.LastMessagePreview,
+            unreadCounts.GetValueOrDefault(c.Id))).ToArray(), next);
     }
 
     public async Task<Page<MessageDto>> ListMessagesAsync(Guid conversationId, int limit,

@@ -3,6 +3,7 @@ using ChatInbox.Api.Realtime;
 using ChatInbox.Application.Inbound;
 using ChatInbox.Application.Outbound;
 using ChatInbox.Application.Queries;
+using ChatInbox.Application.Read;
 using ChatInbox.Application.Realtime;
 using ChatInbox.Infrastructure.Messaging;
 using ChatInbox.Infrastructure.Persistence;
@@ -27,6 +28,8 @@ if (!string.IsNullOrWhiteSpace(postgresConnection))
     builder.Services.AddScoped<IInboundStore, InboxRepository>();
     builder.Services.AddScoped<IInboxQueries, InboxQueries>();
     builder.Services.AddScoped<IReplyRepository, ReplyRepository>();
+    builder.Services.AddScoped<IReadStateRepository, ReadStateRepository>();
+    builder.Services.AddScoped<MarkConversationReadUseCase>();
     builder.Services.AddHttpClient<IReplySender, TelegramReplySender>(client =>
     {
         client.BaseAddress = new Uri("https://api.telegram.org/");
@@ -96,6 +99,7 @@ try
     {
         app.MapInboxQueries();
         app.MapInboxReplies();
+        app.MapInboxReadState();
     }
 
     app.Run();

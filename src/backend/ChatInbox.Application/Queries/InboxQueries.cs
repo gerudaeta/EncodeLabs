@@ -6,7 +6,7 @@ namespace ChatInbox.Application.Queries;
 public sealed record Page<T>(IReadOnlyList<T> Items, string? NextCursor);
 
 public sealed record ConversationDto(Guid Id, long TelegramChatId, string? DisplayName,
-    DateTimeOffset? LastMessageAt, string? LastMessagePreview);
+    DateTimeOffset? LastMessageAt, string? LastMessagePreview, int UnreadCount);
 
 public sealed record MessageDto(Guid Id, long TelegramMessageId, string Direction,
     string Text, DateTimeOffset SentAt);

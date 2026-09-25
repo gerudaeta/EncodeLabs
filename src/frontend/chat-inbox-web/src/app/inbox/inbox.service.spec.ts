@@ -39,6 +39,13 @@ describe('InboxService', () => {
     request.flush({ items: [], nextCursor: null });
   });
 
+  it('posts a mark-read request', () => {
+    service.markRead('conv-1').subscribe();
+    const request = httpMock.expectOne('/api/conversations/conv-1/read');
+    expect(request.request.method).toBe('POST');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
   it('posts a reply message', () => {
     service.sendMessage('conv-1', 'hello').subscribe();
     const request = httpMock.expectOne('/api/conversations/conv-1/messages');

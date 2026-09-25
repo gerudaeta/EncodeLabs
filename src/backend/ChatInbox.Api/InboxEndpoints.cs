@@ -1,5 +1,6 @@
 using ChatInbox.Application.Outbound;
 using ChatInbox.Application.Queries;
+using ChatInbox.Application.Read;
 
 namespace ChatInbox.Api;
 
@@ -61,6 +62,16 @@ public static class InboxEndpoints
             {
                 return Results.NotFound();
             }
+        });
+    }
+
+    public static void MapInboxReadState(this WebApplication app)
+    {
+        app.MapPost("/api/conversations/{id:guid}/read", async (Guid id, MarkConversationReadUseCase useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var found = await useCase.MarkReadAsync(id, cancellationToken);
+            return found ? Results.NoContent() : Results.NotFound();
         });
     }
 

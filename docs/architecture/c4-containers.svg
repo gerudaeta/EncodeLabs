@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1540" height="880" viewBox="0 0 1540 880" role="img" aria-labelledby="c4-containers-title c4-containers-desc">
-  <title id="c4-containers-title">C4 L2 — Target architecture</title>
-  <desc id="c4-containers-desc">The operator uses Angular. Planned Telegram updates reach the single .NET API host through ngrok, then RabbitMQ and a background consumer in that same host persist data in PostgreSQL and notify Angular through SignalR. Outbound replies use the Telegram Bot API. The foundation PR starts only shells and supporting services.</desc>
+  <title id="c4-containers-title">C4 L2 — Containers</title>
+  <desc id="c4-containers-desc">The operator uses Angular. Telegram updates reach the single .NET API host through ngrok, then RabbitMQ and a background consumer in that same host persist data in PostgreSQL and notify Angular through SignalR. Outbound replies use the Telegram Bot API. Implemented and live-verified end to end; authentication is not implemented and SignalR broadcasts to all connected clients.</desc>
   <defs>
     <marker id="blue-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse">
       <path d="M 0 0 L 10 4 L 0 8 Z" fill="#2e5aa8"/>
@@ -11,73 +11,73 @@
     </marker>
   </defs>
   <rect x="0" y="0" width="1540" height="880" rx="0" fill="#f5f5f5" stroke="none" stroke-width="0"/>
-  <text x="48" y="58" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="600" text-anchor="start">C4 L2 — Target architecture</text>
-  <text x="48" y="86" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" text-anchor="start">Planned interactions are not implemented in the foundation PR.</text>
+  <text x="48" y="58" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="600" text-anchor="start">C4 L2 — Containers</text>
+  <text x="48" y="86" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" text-anchor="start">Implemented and live-verified end to end; authentication is not implemented.</text>
   <rect x="320" y="268" width="1160" height="432" rx="12" fill="#f0f1f3" stroke="#bfc0c0" stroke-width="1.5" stroke-dasharray="8 7"/>
   <rect x="348" y="258" width="248" height="26" rx="0" fill="#f5f5f5" stroke="none" stroke-width="0"/>
   <text x="352" y="277" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" text-anchor="start" letter-spacing="1">CHAT INBOX SYSTEM BOUNDARY</text>
-  <path d="M 245 182 H 357" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#blue-arrow)"/>
+  <path d="M 245 182 H 357" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)"/>
   <rect x="250.0" y="143" width="102" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
   <text x="301" y="162" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">updates</text>
-  <path d="M 465 228 V 300 Q 465 308 473 308 H 830 Q 838 308 838 316 V 364" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#blue-arrow)"/>
+  <path d="M 465 228 V 300 Q 465 308 473 308 H 830 Q 838 308 838 316 V 364" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)"/>
   <rect x="532.0" y="325" width="208" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
-  <text x="636" y="344" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">HTTPS webhook (future)</text>
-  <path d="M 251 588 H 359" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#blue-arrow)"/>
+  <text x="636" y="344" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">HTTPS webhook</text>
+  <path d="M 251 588 H 359" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)"/>
   <rect x="243.0" y="547" width="126" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
   <text x="306" y="566" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">uses web app</text>
-  <path d="M 607 550 H 706" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#blue-arrow)"/>
+  <path d="M 607 550 H 706" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)"/>
   <rect x="606.0" y="510" width="100" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
   <text x="656" y="529" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">HTTP API</text>
-  <path d="M 706 603 H 607" fill="none" stroke="#4f5d75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#slate-arrow)"/>
+  <path d="M 706 603 H 607" fill="none" stroke="#4f5d75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#slate-arrow)"/>
   <rect x="570.0" y="627" width="168" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
-  <text x="654" y="646" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">SignalR (future)</text>
-  <path d="M 1046 404 H 1161" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#blue-arrow)"/>
+  <text x="654" y="646" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">SignalR</text>
+  <path d="M 1046 404 H 1161" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)"/>
   <rect x="1035.0" y="364" width="134" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
-  <text x="1102" y="383" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">publish (future)</text>
-  <path d="M 1161 464 H 1105 Q 1097 464 1097 472 V 492 Q 1097 500 1089 500 H 1046" fill="none" stroke="#4f5d75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#slate-arrow)"/>
+  <text x="1102" y="383" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">publish</text>
+  <path d="M 1161 464 H 1105 Q 1097 464 1097 472 V 492 Q 1097 500 1089 500 H 1046" fill="none" stroke="#4f5d75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#slate-arrow)"/>
   <rect x="1035.0" y="513" width="162" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
-  <text x="1116" y="532" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">consume (future)</text>
-  <path d="M 1046 608 H 1161" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#blue-arrow)"/>
+  <text x="1116" y="532" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">consume</text>
+  <path d="M 1046 608 H 1161" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)"/>
   <rect x="1039.0" y="569" width="128" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
-  <text x="1103" y="588" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">store (future)</text>
-  <path d="M 973 364 V 128 Q 973 120 965 120 H 166 Q 158 120 158 128 V 136" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5" marker-end="url(#blue-arrow)"/>
+  <text x="1103" y="588" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">store</text>
+  <path d="M 973 364 V 128 Q 973 120 965 120 H 166 Q 158 120 158 128 V 136" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)"/>
   <rect x="621.5" y="90" width="223" height="24" rx="2" fill="#f5f5f5" stroke="none" stroke-width="0"/>
-  <text x="733" y="109" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">reply via Bot API (future)</text>
+  <text x="733" y="109" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="middle">reply via Bot API</text>
   <rect x="50" y="136" width="195" height="92" rx="8" fill="#e8ecf0" stroke="#4f5d75" stroke-width="1.5"/>
   <text x="147" y="174" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle">Telegram</text>
   <text x="147" y="201" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" text-anchor="middle">External Bot API</text>
   <rect x="357" y="136" width="216" height="92" rx="8" fill="#fff" stroke="#2d3142" stroke-width="1.5"/>
   <text x="465" y="174" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle">ngrok</text>
-  <text x="465" y="201" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" text-anchor="middle">Tunnel service · starts*</text>
+  <text x="465" y="201" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" text-anchor="middle">Tunnel service · webhook only*</text>
   <rect x="50" y="542" width="201" height="92" rx="8" fill="#e8ecf0" stroke="#4f5d75" stroke-width="1.5"/>
   <text x="150" y="580" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="middle">Operator</text>
   <text x="150" y="607" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" text-anchor="middle">Person</text>
   <rect x="359" y="484" width="248" height="148" rx="8" fill="#fff" stroke="#2d3142" stroke-width="1.5"/>
   <text x="383" y="513" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" text-anchor="start" letter-spacing="1">WEB APPLICATION</text>
   <text x="383" y="553" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" text-anchor="start">Angular 22</text>
-  <text x="383" y="582" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">Inbox route shell exists</text>
-  <text x="383" y="607" fill="#65728a" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">API / SignalR client: future</text>
+  <text x="383" y="582" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">Conversation list, thread, replies</text>
+  <text x="383" y="607" fill="#65728a" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">SignalR client with auto-reconnect</text>
   <rect x="706" y="364" width="340" height="268" rx="8" fill="#fff" stroke="#eb6c36" stroke-width="2"/>
   <text x="730" y="393" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" text-anchor="start" letter-spacing="1">SINGLE EXECUTABLE HOST</text>
   <text x="730" y="430" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="start">.NET 10 API</text>
-  <text x="730" y="463" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" text-anchor="start">Minimal API shell exists</text>
+  <text x="730" y="463" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="400" text-anchor="start">Minimal API host</text>
   <path d="M 730 480 H 1019" fill="none" stroke="#bfc0c0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="730" y="513" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">HTTP webhook · future</text>
-  <text x="730" y="541" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">RabbitMQ consumer · future</text>
-  <text x="730" y="569" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">SignalR hub · future</text>
+  <text x="730" y="513" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">HTTP webhook</text>
+  <text x="730" y="541" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">RabbitMQ consumer (retry, DLQ)</text>
+  <text x="730" y="569" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" text-anchor="start">SignalR hub (/hubs/inbox)</text>
   <text x="730" y="603" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" text-anchor="start">No separate Worker container</text>
   <rect x="1161" y="354" width="266" height="122" rx="8" fill="#fff" stroke="#2d3142" stroke-width="1.5"/>
   <text x="1185" y="384" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" text-anchor="start" letter-spacing="1">BROKER</text>
   <text x="1185" y="416" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" text-anchor="start">RabbitMQ</text>
-  <text x="1185" y="447" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Service starts; no publisher</text>
+  <text x="1185" y="447" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Publisher confirms; DLQ on retry limit</text>
   <rect x="1161" y="550" width="266" height="122" rx="8" fill="#fff" stroke="#2d3142" stroke-width="1.5"/>
   <text x="1185" y="580" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" text-anchor="start" letter-spacing="1">DATA STORE</text>
   <text x="1185" y="612" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" text-anchor="start">PostgreSQL</text>
-  <text x="1185" y="643" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Service starts; no data model</text>
-  <text x="49" y="727" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">* ngrok needs a valid local token; full five-service startup was not verified.</text>
+  <text x="1185" y="643" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Conversations &amp; messages; idempotent on update_id</text>
+  <text x="49" y="727" fill="#4f5d75" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">* ngrok needs a valid authtoken; Traffic Policy exposes only POST /webhooks/telegram publicly.</text>
   <path d="M 48 790 H 1492" stroke="#bfc0c0" stroke-width="1"/>
   <rect x="48" y="814" width="30" height="20" rx="4" fill="#fff" stroke="#2d3142" stroke-width="1.5"/>
-  <text x="90" y="830" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Foundation PR: app shell or service declared</text>
-  <path d="M 610 824 H 652" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5"/>
-  <text x="665" y="830" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Future integration: planned, not implemented</text>
+  <text x="90" y="830" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Component (system, container, or actor)</text>
+  <path d="M 610 824 H 652" fill="none" stroke="#2e5aa8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="665" y="830" fill="#2d3142" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" text-anchor="start">Implemented flow</text>
 </svg>

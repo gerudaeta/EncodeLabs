@@ -4,11 +4,11 @@
 
 ## Context
 
-The operator's inbox should receive new-message and conversation updates without repeated manual refresh. The .NET API is the future source of those updates; the Angular client needs a manageable connection lifecycle.
+The operator's inbox should receive new-message and conversation updates without repeated manual refresh. The .NET API is the source of those updates; the Angular client needs a manageable connection lifecycle.
 
 ## Decision
 
-Use ASP.NET Core SignalR for future API-to-browser notifications. Its hub model supports targeted delivery, while the JavaScript client offers configurable reconnection; reconnection is **not enabled by default** ([SignalR overview](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction?view=aspnetcore-10.0); [JavaScript client](https://learn.microsoft.com/en-us/aspnet/core/signalr/javascript-client?view=aspnetcore-10.0)). Persisted data remains authoritative; a notification prompts the client to reconcile state rather than replacing storage.
+Use ASP.NET Core SignalR for API-to-browser notifications. Its hub model supports targeted delivery, while the JavaScript client offers configurable reconnection; reconnection is **not enabled by default** ([SignalR overview](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction?view=aspnetcore-10.0); [JavaScript client](https://learn.microsoft.com/en-us/aspnet/core/signalr/javascript-client?view=aspnetcore-10.0)). Persisted data remains authoritative; a notification prompts the client to reconcile state rather than replacing storage.
 
 ## Alternatives and tradeoffs
 

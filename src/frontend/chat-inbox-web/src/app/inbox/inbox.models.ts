@@ -9,6 +9,7 @@ export interface Conversation {
   displayName: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
+  unreadCount: number;
 }
 
 export const enum MessageDirection {

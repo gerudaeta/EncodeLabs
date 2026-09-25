@@ -6,9 +6,9 @@ import { InboxComponent } from './inbox.component';
 import { InboxRealtimeService, MessageStoredNotification } from './inbox-realtime.service';
 import { Conversation, Message, MessageDirection, Page } from './inbox.models';
 
-const conversation = (id: string, preview: string): Conversation => ({
+const conversation = (id: string, preview: string, unreadCount = 0): Conversation => ({
   id, telegramChatId: 1, displayName: `Chat ${id}`, lastMessageAt: '2026-09-24T10:00:00Z',
-  lastMessagePreview: preview,
+  lastMessagePreview: preview, unreadCount,
 });
 
 const message = (id: string, direction: MessageDirection, text: string): Message => ({
@@ -44,6 +44,10 @@ describe('InboxComponent', () => {
     httpMock.expectOne('/api/conversations').flush(page);
   }
 
+  function flushMarkRead(id: string): void {
+    httpMock.expectOne(`/api/conversations/${id}/read`).flush(null, { status: 204, statusText: 'No Content' });
+  }
+
   it('shows a loading state while conversations load', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Loading conversations');
@@ -76,11 +80,29 @@ describe('InboxComponent', () => {
     httpMock.expectOne('/api/conversations/c1/messages').flush({
       items: [message('m1', MessageDirection.Inbound, 'hello there')], nextCursor: null,
     });
+    flushMarkRead('c1');
     fixture.detectChanges();
 
     const inbound = fixture.nativeElement.querySelector('[data-testid="message-m1"]');
     expect(inbound.textContent).toContain('hello there');
     expect(inbound.className).toContain('inbound');
+  });
+
+  it('shows an unread badge and clears it once the conversation is opened', () => {
+    fixture.detectChanges();
+    flushConversations({ items: [conversation('c1', 'hi there', 3)], nextCursor: null });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="unread-badge-c1"]').textContent).toContain('3');
+
+    fixture.nativeElement.querySelector('[data-testid="conversation-c1"]').click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="unread-badge-c1"]')).toBeNull();
+
+    httpMock.expectOne('/api/conversations/c1/messages').flush({ items: [], nextCursor: null });
+    flushMarkRead('c1');
+    fixture.detectChanges();
   });
 
   it('shows a load more button and appends older conversations', () => {
@@ -103,6 +125,7 @@ describe('InboxComponent', () => {
     fixture.nativeElement.querySelector('[data-testid="conversation-c1"]').click();
     fixture.detectChanges();
     httpMock.expectOne('/api/conversations/c1/messages').flush({ items: [], nextCursor: null });
+    flushMarkRead('c1');
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
@@ -131,6 +154,7 @@ describe('InboxComponent', () => {
     fixture.nativeElement.querySelector('[data-testid="conversation-c1"]').click();
     fixture.detectChanges();
     httpMock.expectOne('/api/conversations/c1/messages').flush({ items: [], nextCursor: null });
+    flushMarkRead('c1');
     fixture.detectChanges();
 
     fixture.componentInstance.replyText.set('a reply');
@@ -151,16 +175,19 @@ describe('InboxComponent', () => {
     fixture.nativeElement.querySelector('[data-testid="conversation-c1"]').click();
     fixture.detectChanges();
     httpMock.expectOne('/api/conversations/c1/messages').flush({ items: [], nextCursor: null });
+    flushMarkRead('c1');
     fixture.detectChanges();
     expect(connect).toHaveBeenCalled();
 
     messageStored.next({ conversationId: 'c1' });
 
-    httpMock.expectOne('/api/conversations').flush({ items: [conversation('c1', 'new one')], nextCursor: null });
+    httpMock.expectOne('/api/conversations').flush({ items: [conversation('c1', 'new one', 1)], nextCursor: null });
     httpMock.expectOne('/api/conversations/c1/messages')
       .flush({ items: [message('m3', MessageDirection.Inbound, 'new one')], nextCursor: null });
+    flushMarkRead('c1');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('new one');
+    expect(fixture.nativeElement.querySelector('[data-testid="unread-badge-c1"]')).toBeNull();
   });
 });

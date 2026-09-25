@@ -29,7 +29,7 @@ The inbound flow persists Telegram messages, but nothing is visible to the opera
 
 - [x] **UI-01 — Inbox UI:** Conversation list with pagination cursor, message thread per conversation, loading/empty/error states; nginx and dev proxy; web bound to loopback. Component/service tests.
 - [x] **UI-02 — Outgoing replies:** Application use case + Telegram `sendMessage` adapter; POST endpoint with validation (non-empty, max 4096 chars, unknown conversation → 404, Telegram failure → 502 and nothing persisted); updates conversation preview/last activity; composer in the thread. Backend tests with fake Telegram + real PostgreSQL; frontend tests.
-- [ ] **UI-03 — Realtime:** SignalR hub, notifications from the consumer after commit and from the reply use case; Angular client with automatic reconnect that refetches list/thread on notification. Backend hub test; frontend tests with a fake connection.
+- [x] **UI-03 — Realtime:** SignalR hub, notifications from the consumer after commit and from the reply use case; Angular client with automatic reconnect that refetches list/thread on notification. Backend hub test; frontend tests with a fake connection.
 - [ ] **UI-04 — Close:** README and ADR-002 status update, full backend + frontend suites, Compose config check, live smoke with the running stack.
 
 ## Acceptance criteria
@@ -67,6 +67,22 @@ The inbound flow persists Telegram messages, but nothing is visible to the opera
   fake `IReplySender`) written and passing directly against the finished endpoint (integration
   wiring, not RED-first). Verification: `dotnet test` → 95 passed (full suite, no regressions).
 
+- 2026-09-25 UI-03 done. Added SignalR hub `InboxHub` at `/hubs/inbox` (mapped unconditionally) and
+  `SignalRInboxNotifier` (Api-layer `IInboxNotifier` implementation, replacing the temporary
+  `NoopInboxNotifier`), broadcasting `messageStored` with `{ conversationId }` to all clients.
+  `InboundConsumer` now takes an optional `IInboxNotifier` and notifies once per newly-committed
+  inbound message (looked up by `telegram_chat_id`, never for a redelivered duplicate); notify
+  failures are logged and swallowed so persisted data stays authoritative and the message still
+  acks. `SendReplyUseCase` (from UI-02) already notified after a persisted reply. Frontend
+  `InboxRealtimeService`/wiring in `InboxComponent` was already added in UI-01. RED observed for
+  `SignalRInboxNotifierTests` (NotImplementedException against a stub notifier) and
+  `InboundConsumerNotificationTests` (real 10s timeout waiting for a notification that never came)
+  before implementing; GREEN after. `InboxHubTests` (real `HubConnection` over the TestServer,
+  asserting a POST reply broadcasts `messageStored` with the right conversation id) passed directly
+  against the finished wiring. Verification: `dotnet test` → 98 passed; `npm test -- --watch=false`
+  → 4 files / 17 tests; `npm run build` → succeeded; Compose config check with dummy env vars →
+  exit 0.
+
 ## Next step
 
-UI-03.
+UI-04 (out of scope for this delegation; not started).

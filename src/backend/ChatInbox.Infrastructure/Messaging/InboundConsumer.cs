@@ -1,6 +1,9 @@
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 using ChatInbox.Application.Inbound;
+using ChatInbox.Application.Realtime;
+using ChatInbox.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -56,7 +59,8 @@ internal sealed class ConsumerSubscriptionReadiness : IInboundConsumerReadiness
 public sealed class InboundConsumer(
     IConnection connection,
     IServiceScopeFactory scopes,
-    ILogger<InboundConsumer> logger) : BackgroundService, IInboundConsumerReadiness
+    ILogger<InboundConsumer> logger,
+    IInboxNotifier? notifier = null) : BackgroundService, IInboundConsumerReadiness
 {
     private readonly ConsumerSubscriptionReadiness _readiness = new();
     public bool IsReady => _readiness.IsReady;
@@ -159,8 +163,10 @@ public sealed class InboundConsumer(
         try
         {
             using var scope = scopes.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<IInboundStore>()
+            var outcome = await scope.ServiceProvider.GetRequiredService<IInboundStore>()
                 .StoreAsync(update, stoppingToken);
+            if (outcome == StoreOutcome.Inserted && notifier is not null)
+                await NotifyAsync(scope.ServiceProvider, update, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -179,5 +185,22 @@ public sealed class InboundConsumer(
         // Both Inserted and AlreadyProcessed return only after a committed database outcome.
         await channel.BasicAckAsync(delivery.DeliveryTag, multiple: false,
             cancellationToken: stoppingToken);
+    }
+
+    private async Task NotifyAsync(IServiceProvider services, InboundTelegramUpdate update,
+        CancellationToken stoppingToken)
+    {
+        try
+        {
+            var conversationId = await services.GetRequiredService<InboxDbContext>().Conversations.AsNoTracking()
+                .Where(c => c.TelegramChatId == update.ChatId).Select(c => c.Id).SingleAsync(stoppingToken);
+            await notifier!.NotifyMessageStoredAsync(conversationId, stoppingToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Persisted data stays authoritative; a missed realtime notification is not fatal.
+            logger.LogWarning(exception, "Inbox realtime notification failed for update {UpdateId}",
+                update.UpdateId);
+        }
     }
 }

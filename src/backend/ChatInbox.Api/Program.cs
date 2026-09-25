@@ -18,7 +18,8 @@ builder.Services.AddSingleton(new TelegramOptions(
 builder.Services.AddSingleton<RegistrationStatus>();
 builder.Services.AddSingleton<IRegistrationStatus>(services =>
     services.GetRequiredService<RegistrationStatus>());
-builder.Services.AddSingleton<IInboxNotifier, NoopInboxNotifier>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IInboxNotifier, SignalRInboxNotifier>();
 var postgresConnection = builder.Configuration.GetConnectionString("Postgres");
 if (!string.IsNullOrWhiteSpace(postgresConnection))
 {
@@ -90,6 +91,7 @@ try
 
     app.MapTelegramWebhook();
     app.MapReadiness();
+    app.MapHub<InboxHub>("/hubs/inbox");
     if (!string.IsNullOrWhiteSpace(postgresConnection))
     {
         app.MapInboxQueries();

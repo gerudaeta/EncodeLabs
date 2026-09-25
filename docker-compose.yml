@@ -4,7 +4,20 @@ services:
       context: .
       dockerfile: src/backend/ChatInbox.Api/Dockerfile
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__Postgres: ${POSTGRES_CONNECTION_STRING:?Set POSTGRES_CONNECTION_STRING in .env}
+      RabbitMQ__Uri: ${RABBITMQ_URI:?Set RABBITMQ_URI in .env}
+      Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      Telegram__WebhookSecret: ${TELEGRAM_WEBHOOK_SECRET:?Set TELEGRAM_WEBHOOK_SECRET in .env}
+      Telegram__RegistrationEnabled: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure
 
   web:
     build:
@@ -29,7 +42,7 @@ services:
       retries: 5
 
   rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:4.3.6-management
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?Set RABBITMQ_USER in .env}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
@@ -45,10 +58,13 @@ services:
       retries: 5
 
   ngrok:
-    image: ngrok/ngrok:latest
-    command: ["http", "api:8080"]
+    image: ngrok/ngrok:3.39.11-alpine
+    command: ["start", "--config", "/etc/ngrok/ngrok.yml", "telegram-webhook"]
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env}
+    volumes:
+      - ./config/ngrok.yml:/etc/ngrok/ngrok.yml:ro
+      - ./config/ngrok-policy.yml:/etc/ngrok/ngrok-policy.yml:ro
     depends_on:
       - api
 

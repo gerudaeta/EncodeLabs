@@ -12,6 +12,12 @@ public sealed class Conversation
     public string? LastMessagePreview { get; set; }
 }
 
+internal static class MessageDirections
+{
+    public const string Inbound = "inbound";
+    public const string Outbound = "outbound";
+}
+
 public sealed class Message
 {
     public Guid Id { get; set; }
@@ -21,6 +27,16 @@ public sealed class Message
     public string Text { get; set; } = "";
     public DateTimeOffset SentAt { get; set; }
     public string Direction { get; set; } = "inbound";
+    public DateTimeOffset? ReadAt { get; set; }
+
+    // Domain rule: only unread inbound messages can transition to read. Outbound messages are
+    // never unread, and marking an already-read message is a no-op (idempotent).
+    public bool MarkRead(DateTimeOffset at)
+    {
+        if (Direction != MessageDirections.Inbound || ReadAt is not null) return false;
+        ReadAt = at;
+        return true;
+    }
 }
 
 public sealed class ProcessedUpdate
@@ -63,12 +79,16 @@ public sealed class InboxDbContext(DbContextOptions<InboxDbContext> options) : D
             b.Property(x => x.Text).HasColumnName("text").IsRequired();
             b.Property(x => x.SentAt).HasColumnName("sent_at").IsRequired();
             b.Property(x => x.Direction).HasColumnName("direction").IsRequired();
+            b.Property(x => x.ReadAt).HasColumnName("read_at");
             b.HasOne<Conversation>().WithMany().HasForeignKey(x => x.ConversationId);
             b.HasIndex(x => x.TelegramUpdateId).IsUnique().HasDatabaseName("ux_messages_update");
             b.HasIndex(x => new { x.ConversationId, x.TelegramMessageId }).IsUnique()
                 .HasDatabaseName("ux_messages_chat_message");
             b.HasIndex(x => new { x.ConversationId, x.SentAt, x.Id })
                 .HasDatabaseName("ix_messages_conversation_time");
+            // Speeds up per-conversation unread counts without scanning read/outbound rows.
+            b.HasIndex(x => x.ConversationId).HasDatabaseName("ix_messages_unread")
+                .HasFilter($"direction = '{MessageDirections.Inbound}' AND read_at IS NULL");
         });
 
         modelBuilder.Entity<ProcessedUpdate>(b =>
